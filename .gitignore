@@ -23,6 +23,9 @@ venv/
 # Exclure les binaires
 *.pyd
 
+# Exclure les sensibles
+*.toml
+
 # Exclure les dossiers
 gpx_running_250km/
 backgrounds/
