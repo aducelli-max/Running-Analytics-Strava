@@ -19,13 +19,16 @@ def refresh_tokens():
     refresh_token = st.secrets["STRAVA_REFRESH_TOKEN"]
 
     
-    print("client_id =", client_id)
-    print("client_secret =", client_secret)
-    print("refresh_token =", refresh_token)
+    #print("client_id =", client_id)
+    #print("client_secret =", client_secret)
+    #print("refresh_token =", refresh_token)
 
     # Vérification des préconditions
     if not client_id or not client_secret or not refresh_token:
-        raise ValueError("client_id, client_secret ou refresh_token manquant dans .env")
+        raise ValueError(
+        "STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET ou "
+        "STRAVA_REFRESH_TOKEN manquant dans .streamlit/secrets.toml"
+    )
 
     # Construire la requête OAuth
     url = "https://www.strava.com/oauth/token"

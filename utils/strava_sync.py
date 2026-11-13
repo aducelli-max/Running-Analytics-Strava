@@ -3,7 +3,7 @@ import pandas as pd
 from utils.auth import refresh_tokens
 from datetime import datetime
 from utils.meteo import get_meteo, saison_meteo
-
+from utils.meteo import moyenne_mois, saison_meteo
 
 
 # -----------------------------
@@ -175,14 +175,17 @@ def main():
             return "10km"
         elif 13.5 <= km <= 16.5:
             return "15km"
-        elif 18 <= km <= 22:
+        elif 18 <= km <= 20.5:
             return "20km"
-        elif 19 <= km <= 23:  # semi-marathon ≈ 21.1 km
+        elif 20.5 <= km <= 22.5:  # semi-marathon ≈ 21.1 km
             return "Semi-marathon"
         else:
             return "Entrainement"
 
-    df_h["categories_distances"] = df_h["distance"].apply(categorize_distance)
+    df_h["categories_distances"] = (
+    df_h["distance"]
+    .apply(categorize_distance)
+)
 
 
     # -----------------------------
@@ -223,7 +226,10 @@ def main():
     # Export final
     df_h.to_csv("data/activities_with_weather_harmonized.csv", index=False)
     print("✔️ data/activities_with_weather_harmonized.csv généré")
+    
+    return df_h
 
 
 if __name__ == "__main__":
     main()
+
