@@ -25,8 +25,6 @@ _Une même sortie de 10 km ne coûte pas le même effort à 8 °C sans vent qu�
 
 **Recommandation : demain 7h.**
 
-![Illustration du projet](./Quand s_entrainer.png)
-
 ## Stack : 
 - [x] Python/pandas
 - [x] API Strava (OAuth 2.0),
@@ -37,3 +35,22 @@ _Une même sortie de 10 km ne coûte pas le même effort à 8 °C sans vent qu�
 
 ## Compétences démontrées :
 Intégration d’API, nettoyage et fusion de données hétérogènes, feature engineering, modélisation prédictive, comparaison avant/après, restitution orientée décision.
+
+## Extraits :
+
+### Authentification : 
+
+![Illustration du projet](<static/Chargment_données.png>)
+
+### Parcours :
+
+![Illustration du projet](<static/Folium.png>)
+
+
+### Collecte météo :
+
+![Illustration du projet](<static/API OPEN_METEO.png>)
+
+### Recommandation : 
+
+![Illustration du projet](<static/Quand s_entrainer.png>)
