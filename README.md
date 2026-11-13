@@ -36,7 +36,7 @@ _Une même sortie de 10 km ne coûte pas le même effort à 8 °C sans vent qu�
 ## Compétences démontrées :
 Intégration d’API, nettoyage et fusion de données hétérogènes, feature engineering, modélisation prédictive, comparaison avant/après, restitution orientée décision.
 
-## Extraits :
+## Extraits de l'application :
 
 ### Authentification : 
 
