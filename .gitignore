@@ -24,7 +24,7 @@ venv/
 *.pyd
 
 # Exclure les sensibles
-*.toml
+.streamlit/secrets.toml
 
 # Exclure les dossiers
 gpx_running_250km/
