@@ -1,12 +1,10 @@
-## Running-Analytics-Strava ![Illustration du projet](./large.jpg)
+# **Running-Analytics-Strava** ![Illustration du projet](./large.jpg)
 
 Application d’analyse de performances de course à pied qui croise tes données Strava avec la météo. Un modèle de machine learning estime l’effet des conditions extérieures sur ta durée de parcours et ta charge physique, puis recommande le meilleur créneau d’entraînement sur les trois prochains jours.
 
-Une même sortie de 10 km ne coûte pas le même effort à 8 °C sans vent qu’à 28 °C avec 70 % d’humidité. 
+_Une même sortie de 10 km ne coûte pas le même effort à 8 °C sans vent qu’à 28 °C avec 70 % d’humidité._
 
-Les données brutes de Strava ignorent ce contexte ; Le projet le réintroduit.
-
-# Comment ça marche ?
+## Comment ça marche ?
 
 1. Collecte Strava : récupération de l’historique des activités (distance, allure, durée, fréquence cardiaque, dénivelé) via l’API Strava.
 
@@ -18,22 +16,22 @@ Les données brutes de Strava ignorent ce contexte ; Le projet le réintroduit.
 
 5. Recommandation : classement des créneaux d’aujourd’hui, demain et après-demain, avec le meilleur moment pour s’entraîner.
 
-Exemple simple :
+## Exemple de résultat :
 
-Aujourd’hui, 17 h : 
-26 °C, vent de face → durée estimée +4 min, effort élevé.
+| Créneau | Météo | Durée estimée | Effort |
+|---|---|---|---|
+| Aujourd'hui 17h | 26 °C, vent de face | +4 min | Élevé |
+| Demain 7h | 12 °C, vent faible | Normale | Modéré |
 
+**Recommandation : demain 7h.**
 
-Demain, 7 h : 
-12 °C, vent faible → durée estimée conforme à l’historique, effort modéré.
-Recommandation : demain 7 h.
+## Stack : 
+- [x] Python/pandas
+- [x] API Strava (OAuth 2.0),
+- [x] API open-meteo
+- [x] scikit-learn
+- [x] visualisation (Plotly express)
+- [ ] Power BI
 
-# Stack : 
-- Python/pandas
-- API Strava (OAuth 2.0),
-- API open-meteo
-- scikit-learn
-- visualisation (Plotly express)
-
-# Compétences démontrées :
+## Compétences démontrées :
 Intégration d’API, nettoyage et fusion de données hétérogènes, feature engineering, modélisation prédictive, comparaison avant/après, restitution orientée décision.
