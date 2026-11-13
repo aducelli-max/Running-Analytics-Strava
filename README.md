@@ -25,6 +25,8 @@ _Une même sortie de 10 km ne coûte pas le même effort à 8 °C sans vent qu�
 
 **Recommandation : demain 7h.**
 
+![Illustration du projet](./Quand s_entrainer.png)
+
 ## Stack : 
 - [x] Python/pandas
 - [x] API Strava (OAuth 2.0),
