@@ -30,3 +30,5 @@ venv/
 gpx_running_250km/
 backgrounds/
 mon_projet_streamlit/
+utils/oauth_strava.py
+utils/import requests.py
