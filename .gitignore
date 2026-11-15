@@ -1,32 +1,38 @@
-# Exclure les fichiers de cache
+# Python caches and virtual environments
 __pycache__/
-*.pyc
+*.py[cod]
+.cache/
 .cache.sqlite
-
-# Exclure les gros fichiers
-mon_projet_streamlit/gitimore/
-Base_coureurs/
-Archive/
-
-# Exclure les fichiers compilés
-__pycache__/
-*.pyc
-
-# Exclure les environnements
 env/
 venv/
+.venv/
+
+# Local credentials and secrets
 .env
-
-# Exclure les CSV
-*.csv
-
-# Exclure les binaires
-*.pyd
-
-# Exclure les sensibles
+.env.*
+!.env.example
 .streamlit/secrets.toml
+secrets.toml
+credentials.json
+token.json
+*.pem
+*.key
+*.p12
+*.pfx
 
-# Exclure les dossiers
+# Personal Strava activity data and exports
+/data/
+*.csv
+*.gpx
+*.fit
+*.tcx
+*.geojson
+/ml/model.pkl
+
+# Local and generated files
+*.pyd
+Base_coureurs/
+Archive/
 gpx_running_250km/
 backgrounds/
 mon_projet_streamlit/
