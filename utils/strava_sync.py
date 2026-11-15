@@ -1,3 +1,15 @@
+
+
+"""Synchronisation des activités Strava et enrichissement météo.
+
+Ce script exécute le pipeline complet suivant :
+1. refresh_tokens() : actualise le token OAuth Strava.
+2. get_activities() : récupère la liste complète des activités.
+3. Enrichissement des données avec la météo locale.
+4. get_streams() : récupère les traces GPS point par point.
+5. Export des fichiers CSV de résultat.
+"""
+
 import requests
 import pandas as pd
 from utils.auth import refresh_tokens
@@ -10,6 +22,11 @@ from utils.meteo import moyenne_mois, saison_meteo
 # Récupération des activités Strava
 # -----------------------------
 def get_activities(access_token):
+    """Récupère toutes les activités Strava en pagination.
+
+    La Strava API renvoie les activités par lots de 200 éléments maximum.
+    On boucle jusqu'à obtenir une page vide, ce qui marque la fin des données.
+    """
     print("📥 Récupération des activités Strava…")
     url = "https://www.strava.com/api/v3/athlete/activities"
     headers = {"Authorization": f"Bearer {access_token}"}
@@ -39,6 +56,11 @@ def get_activities(access_token):
 # Récupération des streams GPS Strava
 # -----------------------------
 def get_streams(activity_id, access_token):
+    """Récupère les stream GPS associés à une activité Strava.
+
+    Les clés demandées correspondent aux données utiles pour la piste GPS :
+    lat/lon, altitude, vitesse, distance et fréquence cardiaque.
+    """
     url = f"https://www.strava.com/api/v3/activities/{activity_id}/streams"
     headers = {"Authorization": f"Bearer {access_token}"}
 
@@ -58,6 +80,11 @@ def get_streams(activity_id, access_token):
 # Fonction robuste pour extraire lat/lon
 # -----------------------------
 def safe_latlng(value):
+    """Retourne un couple (lat, lon) si la donnée est bien structurée.
+
+    Certaines activités Strava peuvent avoir des coordonnées absentes ou au format
+    inattendu. Cette fonction normalise le cas le plus fréquent.
+    """
     if isinstance(value, list) and len(value) == 2:
         return value[0], value[1]
     return None, None
@@ -67,24 +94,37 @@ def safe_latlng(value):
 # Pipeline principal
 # -----------------------------
 def main():
+    """Pipeline complet de synchronisation / enrichissement des activités Strava.
+
+    Étapes détaillées :
+    - authentication et refresh du token,
+    - récupération des activités,
+    - construction du DataFrame brut,
+    - enrichissement météo et calculs de variables dérivées,
+    - récupération des points GPS,
+    - export des fichiers CSV finaux.
+    """
     print("🔄 Rafraîchissement des tokens…")
     access_token, refresh_token = refresh_tokens()
 
+    # 1) Récupération de la liste des activités Strava.
     activities = get_activities(access_token)
 
+    # 2) Sauvegarde des données brutes avant transformation.
     df = pd.DataFrame(activities)
     df.to_csv("activities_raw.csv", index=False)
     print("✔️ activities_raw.csv généré")
 
+    # 3) Ajout des données météorologiques calculées à partir des coordonnées et date.
     print("🌦️ Ajout de la météo…")
 
     df_h = df.copy()
 
-    # GPS de départ/arrivée
+    # GPS de départ/arrivée : normalisation des lat/lon dans des colonnes distinctes.
     df_h["start_lat"], df_h["start_lon"] = zip(*df_h["start_latlng"].apply(safe_latlng))
     df_h["end_lat"], df_h["end_lon"] = zip(*df_h["end_latlng"].apply(safe_latlng))
 
-    # Dates
+    # Dates : conversion UTC puis conversion locale pour exploiter l'heure locale.
     df_h["start_date"] = pd.to_datetime(df_h["start_date"], utc=True)
     df_h["start_date_local"] = df_h["start_date"].dt.tz_convert("Europe/Paris")
     df_h["year"] = df_h["start_date"].dt.year
@@ -94,6 +134,8 @@ def main():
     # -----------------------------
     # MÉTÉO BRUTE (sans fallback)
     # -----------------------------
+    # Pour chaque activité, on demande la météo à l'heure de départ locale.
+    # Si les coordonnées ou la météo sont absentes, on garde None pour filtrer ensuite.
     temp_list, rh_list, precip_list, cloud_list, wind_list = [], [], [], [], []
 
     for _, row in df_h.iterrows():
@@ -127,7 +169,7 @@ def main():
             cloud_list.append(meteo["cloud"])
             wind_list.append(meteo["wind"])
 
-    # Création des colonnes météo
+    # Création des colonnes météo directement à partir des résultats interpolés.
     df_h["temperature"] = temp_list
     df_h["wind_speed"] = wind_list
     df_h["temp_mean"] = df_h["temperature"]
@@ -139,6 +181,8 @@ def main():
     # -----------------------------
     # Fallback météo (maintenant OK)
     # -----------------------------
+    # Si la météo exacte manque pour une activité, on remplace par la moyenne mensuelle
+    # ou par une valeur de saison. Ce mécanisme évite les NaN sur les colonnes d'entraînement.
     for col, idx in [("rh_mean", 1), ("precip_mean", 2), ("cloud_mean", 3)]:
         df_h[col] = df_h.apply(
             lambda row: row[col]
@@ -147,7 +191,7 @@ def main():
             axis=1,
         )
 
-    # Colonnes calculées
+    # Colonnes calculées : variables de contexte utiles pour l'analyse et le modèle.
     df_h["distance_km"] = df_h["distance"] / 1000
     df_h["vitesse_kmh"] = df_h["average_speed"] * 3.6
     df_h["allure_min_km"] = df_h["moving_time"] / df_h["distance_km"] / 60
@@ -165,6 +209,7 @@ def main():
     # -----------------------------
     # Catégorisation des distances (±10%)
     # -----------------------------
+    # Permet de regrouper les séances par distance de référence (5 km, 10 km, etc.).
     def categorize_distance(d):
         km = d / 1000  # conversion en km
 
@@ -191,6 +236,8 @@ def main():
     # -----------------------------
     # Récupération GPS Strava → gps_points.csv
     # -----------------------------
+    # Chaque activité a une trace GPS constituée de points successifs.
+    # On les extrait et on les enregistre sous forme de tableau linéaire pour analyse.
     print("📡 Récupération des traces GPS…")
 
     gps_rows = []
@@ -219,11 +266,12 @@ def main():
                 "heartrate": heartrate[i] if i < len(heartrate) else None
             })
 
+    # 4) Export des points GPS sous forme de données tabulées.
     gps_df = pd.DataFrame(gps_rows)
     gps_df.to_csv("data/gps_points.csv", index=False)
     print("✔️ data/gps_points.csv généré")
 
-    # Export final
+    # 5) Export final de l'ensemble des activités enrichies et prêtes pour l'analyse.
     df_h.to_csv("data/activities_with_weather_harmonized.csv", index=False)
     print("✔️ data/activities_with_weather_harmonized.csv généré")
     

@@ -1,4 +1,5 @@
 import requests
+# Dépendances pour les requêtes HTTP et la lecture des secrets Streamlit.
 import streamlit as st
 
 def refresh_tokens():
@@ -12,7 +13,7 @@ def refresh_tokens():
     - Retourne (access_token, refresh_token)
     """
 
-    # Charger .env à chaque appel pour toujours lire les valeurs à jour
+    # Lire les identifiants Strava depuis les secrets de l’application.
     
     client_id = st.secrets["STRAVA_CLIENT_ID"]
     client_secret = st.secrets["STRAVA_CLIENT_SECRET"]
@@ -23,14 +24,14 @@ def refresh_tokens():
     #print("client_secret =", client_secret)
     #print("refresh_token =", refresh_token)
 
-    # Vérification des préconditions
+    # Vérifier que les identifiants requis sont bien configurés.
     if not client_id or not client_secret or not refresh_token:
         raise ValueError(
         "STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET ou "
         "STRAVA_REFRESH_TOKEN manquant dans .streamlit/secrets.toml"
     )
 
-    # Construire la requête OAuth
+    # Préparer les paramètres de la demande de renouvellement OAuth.
     url = "https://www.strava.com/oauth/token"
     data = {
         "client_id": client_id,
@@ -39,25 +40,27 @@ def refresh_tokens():
         "refresh_token": refresh_token
     }
 
-    # Appel API
+    # Envoyer la demande de renouvellement à l’API Strava.
     response = requests.post(url, data=data)
 
-    # Vérification du code HTTP
+    # Vérifier que l’API a répondu sans erreur HTTP.
     if response.status_code != 200:
         raise RuntimeError(f"Erreur OAuth Strava : {response.status_code} — {response.text}")
 
+    # Convertir la réponse de l’API en objet JSON.
     tokens = response.json()
 
-    # Vérification des clés attendues
+    # Vérifier la présence des tokens attendus dans la réponse.
     if "access_token" not in tokens or "refresh_token" not in tokens:
         raise KeyError("Réponse Strava invalide : clés manquantes dans le JSON")
 
+    # Extraire les nouveaux tokens reçus de Strava.
     new_access_token = tokens["access_token"]
     new_refresh_token = tokens["refresh_token"]
 
-    # Mise à jour du refresh_token dans .env
+    # Conserver le refresh token renouvelé pour le renvoyer à l’appelant.
     
-    # Retourner les deux tokens
+    # Renvoyer le token d’accès et le nouveau token de renouvellement.
     return new_access_token, new_refresh_token
 
 

@@ -17,19 +17,36 @@ from utils.folium_color import folium_color
 from utils.meteo import get_meteo
 from utils.strava_sync import main
 
+# -------------------------------------------------------------------
+# IMPORTS ET CONFIGURATION GLOBALE
+# -------------------------------------------------------------------
+# Les bibliothèques ci-dessous sont utilisées pour :
+# - l'interface Streamlit,
+# - la manipulation des données (pandas, numpy),
+# - l'affichage des cartes (folium, streamlit_folium),
+# - la génération de graphiques (plotly),
+# - les fonctions métier du projet (météo, prédiction, Strava).
+
 
 # ---------------------
 # INITIALISATION SESSION
 # ---------------------
+# Ces variables permettent de mémoriser l'état de navigation et
+# la course sélectionnée entre les différentes pages de l'application.
 if "page" not in st.session_state:
     st.session_state.page = "home"
 
 if "selected_activity" not in st.session_state:
     st.session_state.selected_activity = None
+    
 
-# ---------------------
+
+# -------------------------------------------------------------------
 # PAGE 1 — ACCUEIL
-# ---------------------
+# -------------------------------------------------------------------
+# Cette section affiche la landing page de l'application, la bannière,
+# les boutons d'action et permet de mettre à jour les données ou
+# d'importer un fichier GPX.
 if st.session_state.page == "home":
 
     # Liste des images dans le dossier static
@@ -51,9 +68,12 @@ if st.session_state.page == "home":
 
 
     # --- Boutons d'action ---
+# Cette section permet de lancer la mise à jour des activités Strava et
+# d'importer un fichier GPX pour traiter un parcours externe.
     col1, col2 = st.columns(2)
 
     with col1:
+        # Bouton de synchronisation des données Strava.
         if st.button("🔄 Mise à jour"):
             with st.spinner("⏳ Mise à jour des activités…"):
                 progress = st.progress(0)
@@ -83,17 +103,21 @@ if st.session_state.page == "home":
 # ---------------------
 # CHARGEMENT DES DONNÉES
 # ---------------------
-
+# Charge les données d'activités et les points GPS depuis les fichiers CSV.
+# La fonction est mise en cache pour éviter de relire les fichiers à chaque rafraîchissement.
 @st.cache_data
 def load_data():
 
+    # Lecture du dataset principal contenant les infos de performance et météo.
     df = pd.read_csv(
         "data/activities_with_weather_harmonized.csv"
     
     )
 
+    # On conserve uniquement les sorties en course à pied.
     df = df[df["sport_type"] == "Run"].copy()
 
+    # Conversion explicite des dates en datetime timezone-aware.
     df["start_date"] = pd.to_datetime(
         df["start_date"],
         utc=True
@@ -104,6 +128,7 @@ def load_data():
         utc=True
     )
 
+    # Normalisation de l'allure pour éliminer les valeurs invalides ou infinies.
     df["allure_min_km"] = (
         pd.to_numeric(
             df["allure_min_km"],
@@ -112,6 +137,7 @@ def load_data():
         .replace([np.inf, -np.inf], np.nan)
     )
 
+    # Lecture des points GPS associés à chaque activité.
     gps = pd.read_csv(
         "data/gps_points.csv"
     )
@@ -119,7 +145,7 @@ def load_data():
     return df, gps
 
 
-# APPEL DE LA FONCTION
+# Appel unique de chargement des données au démarrage de l'application.
 df, gps = load_data()
 if df.empty:
     st.error("Le dataframe df est vide")
@@ -133,6 +159,7 @@ if gps.empty:
 # ---------------------
 # BARRE LATERAL : MÉTÉO DU JOUR & STATISTIQUES PERSO
 # ---------------------
+# Sélectionne la dernière activité connue pour extraire la météo du lieu de départ.
 latest_activities = df.dropna(subset=["start_date_local"])
 if latest_activities.empty:
         st.error("Aucune activité de course avec une date valide n’est disponible.")
@@ -146,8 +173,10 @@ lon = best_row_today["lon_start"]
 date_str = datetime.now().strftime("%Y-%m-%d")
 hour_now = datetime.now().hour
 
+# Récupération de la météo actuelle à partir des coordonnées de la dernière activité.
 meteo_today = get_meteo(lat, lon, date_str, hour_now, df)
 
+# Affichage de la météo dans la sidebar.
 st.sidebar.title("🌦️ La météo du jour")
 st.sidebar.write(f"**🌡️ Température :** {meteo_today['temp']} °C")
 st.sidebar.write(f"**💨 Vent :** {meteo_today['wind']} km/h")
@@ -155,6 +184,7 @@ st.sidebar.write(f"**💧 Humidité :** {meteo_today['rh']} %")
 st.sidebar.write(f"**🌧️ Précipitations :** {meteo_today['precip']} mm")
 st.sidebar.write(f"**☁️ Nuages :** {meteo_today['cloud']} %")
 
+# Affichage de statistiques globales pour aider à contextualiser les performances.
 st.sidebar.title("📈📉  Stats' globales : ")
     
 st.sidebar.write(f"**📏 Distance moy. :** {df["distance_km"].mean():.2f} km")
@@ -170,9 +200,10 @@ st.sidebar.write(f"**🏁 Activités :** {df['activity_id'].count()} sorties")
         
     
 
-    # ---------------------
-    # FILTRES ANNÉE / MOIS / CATÉGORIES
-    # ---------------------
+# ---------------------
+# FILTRES ANNÉE / MOIS / CATÉGORIES
+# ---------------------
+# Construction des filtres interactifs pour sélectionner un sous-ensemble d'activités.
 df_cat = df.copy()
 last_activity = df_cat.sort_values(by="start_date_local", ascending=False).iloc[0]
 default_year = int(last_activity["year"])
@@ -199,20 +230,21 @@ categories_selection = st.multiselect("Choisir les catégories :", categories_di
 
 df_filtre = df_filtre[df_filtre["categories_distances"].isin(categories_selection)]
 
+# Titre de la section qui affiche les parcours du mois en sélection.
 st.subheader("🗺️ Parcours du mois sélectionné")
-    
-    # ---------------------
-    # SÉCURITÉ : AUCUNE ACTIVITÉ
-    # ---------------------
-    
+
+# ---------------------
+# SÉCURITÉ : AUCUNE ACTIVITÉ
+# ---------------------
+# Vérifie qu'il y a bien au moins une activité dans le filtrage courant.
 if df_filtre.empty:
         st.warning("⚠️ Aucune activité pour ce mois")
         st.stop()
         
-    # ---------------------
-    # SÉCURITÉ : COORDONNÉES INVALIDES
-    # ---------------------
-    
+# ---------------------
+# SÉCURITÉ : COORDONNÉES INVALIDES
+# ---------------------
+# S'assure que la première activité du filtre possède des coordonnées GPS valides.
 lat0 = df_filtre.iloc[0]["lat_start"]
 lon0 = df_filtre.iloc[0]["lon_start"]
 
@@ -221,17 +253,20 @@ if pd.isna(lat0) or pd.isna(lon0):
         st.stop()
        
 
-    # ---------------------
-    # CARTE CENTRÉE SUR LA PREMIÈRE ACTIVITÉ
-    # ---------------------
+# ---------------------
+# CARTE CENTRÉE SUR LA PREMIÈRE ACTIVITÉ
+# ---------------------
+# Initialise la carte Folium sur la première activité disponible du mois.
 carte = folium.Map(
         location=[df_filtre.iloc[0]["lat_start"], df_filtre.iloc[0]["lon_start"]],
         zoom_start=13
     )
 
-    # -----------------------------
-    # AFFICHAGE DE TOUS LES PARCOURS
-    # -----------------------------
+# -----------------------------
+# AFFICHAGE DE TOUS LES PARCOURS
+# -----------------------------
+# Cette boucle trace chaque sortie du mois sur la carte et colorie chaque
+# segment selon son allure pour visualiser immédiatement les variations de rythme.
 for activity_id in df_filtre["activity_id"].unique():
 
         gps_run = (
@@ -243,12 +278,14 @@ for activity_id in df_filtre["activity_id"].unique():
         if len(gps_run) < 2:
             continue
 
+        # Réduit le nombre de points pour alléger le rendu sur la carte.
         gps_run = gps_run.iloc[::3].copy()
 
     # Pour les parcours très courts
         if len(gps_run) < 2:
             continue
 
+        # Calcule un rythme approximatif en min/km à partir de la vitesse.
         gps_run["pace"] = (1000 / gps_run["velocity"]) / 60
         coords = gps_run[["lat", "lon"]].values.tolist()
 
@@ -282,9 +319,10 @@ for activity_id in df_filtre["activity_id"].unique():
             icon=folium.Icon(color='black', icon="flag-checkered", prefix="fa")
         ).add_to(carte)
 
-    # -----------------------------
-    # ZOOM AUTOMATIQUE SUR TOUTES LES COURSES
-    # -----------------------------
+# -----------------------------
+# ZOOM AUTOMATIQUE SUR TOUTES LES COURSES
+# -----------------------------
+# Ajuste le zoom de la carte pour inclure l'ensemble des parcours filtrés.
 gps_all = gps[gps["activity_id"].isin(df_filtre["activity_id"])
     ].dropna(subset=["lat", "lon"])
 
@@ -299,6 +337,7 @@ if not gps_all.empty:
              [max_lat, max_lon]])
 
     # --- Affichage Folium ---
+    # Intègre la carte interactive dans l'interface Streamlit.
         map_data = st_folium(
             carte, 
             height=600, 
@@ -306,6 +345,7 @@ if not gps_all.empty:
         )
 
     # --- Clic sur un marker → sélection pour prédiction ---
+    # Si l'utilisateur clique sur une course, on charge cette activité dans l'état de session.
 if map_data and "last_object_clicked" in map_data:
             
         clicked = map_data["last_object_clicked"]
@@ -318,11 +358,14 @@ if map_data and "last_object_clicked" in map_data:
             st.session_state.page = "prediction"
             st.rerun()
 
-    # -----------------------------
-    # COURSES DU MOIS
-    # -----------------------------
+# -----------------------------
+# COURSES DU MOIS
+# -----------------------------
+# Cette section détaille ensuite chaque course du mois sous forme de cartes,
+# graphiques et boutons d'action pour naviguer vers l'analyse prédictive.
 st.subheader("📅 Courses du mois")
 
+# Styles CSS pour la mise en forme des badges de catégorie.
 st.markdown("""
         <style>
         .badge {
@@ -341,6 +384,7 @@ st.markdown("""
     
 for cat in categories_selection:
 
+        # Badge visuel pour chaque catégorie de distance.
         st.markdown(
             f"<div class='badge'>🏷️ {cat}</div>", 
             unsafe_allow_html=True
@@ -357,6 +401,7 @@ for cat in categories_selection:
             
             unique_key = f"{row['activity_id']}_{cat}_{i}"
 
+            # Ajoute un indicateur de meilleure performance dans cette catégorie.
             trophy = (
                 " 🏆" 
                 if row["activity_id"] == df_cat_sorted.iloc[0]["activity_id"]
@@ -366,6 +411,7 @@ for cat in categories_selection:
             bpm_txt = f"{bpm:.0f} BPM" if pd.notna(bpm) else "—"
 
             # --- Carte info ---
+            # Affiche les principales métriques de la course dans une carte HTML.
             st.markdown(f"""
             <div class="card">
                 <strong>{row['start_date_local'].strftime('%Y-%m-%d')}</strong>{trophy}
@@ -378,6 +424,7 @@ for cat in categories_selection:
             """, unsafe_allow_html=True)
 
             # --- Graphique ---
+            # Représentation visuelle des quatre dimensions principales de performance.
             stats_labels = ["Allure","Vitesse","Cardio","Temps"]
             stats_values = [
                 row["allure_min_km"],
@@ -405,6 +452,7 @@ for cat in categories_selection:
 
 
             # --- Bouton prédire ---
+            # Envoie l'activité courante vers la page de prédiction météo-performance.
             if st.button("🔮 Prédire", key=f"btn_{unique_key}"):
                 st.session_state["selected_activity"] = row
                 st.session_state.page = "prediction"
@@ -413,12 +461,19 @@ for cat in categories_selection:
             st.markdown("<hr class='separator'>", unsafe_allow_html=True)
 
 
-    #---------------------
-    # PAGE PREDICTION
-    #---------------------
+#---------------------
+# PAGE PREDICTION
+#---------------------
+# Écran dédié à l'analyse météo + performance et à la recommandation
+# des meilleurs créneaux d'entraînement selon la météo, la distance et
+# les conditions de la course sélectionnée.
+# Ici, on compare les performances réelles avec un modèle prédictif pour
+# estimer l'impact de la météo, puis proposer les meilleures heures pour courir.
 
 
 if st.session_state.page == "prediction":
+    # Le coach fournit un message de guidance selon la qualité globale
+    # des conditions météorologiques pour la course.
     
         def get_coach_phrase(score_meteo):
             if score_meteo >= 80:
@@ -473,6 +528,8 @@ if selected_activity is None:
         st.stop()
 
     # --- Bouton Reset ML ---
+    # Permet de réinitialiser les paramètres de prédiction et repartir
+    # sur une analyse neuve sans conserver l'ancien état calculé.
 if st.button("🔄 Reset ML", key="btn_reset_ml"):
         st.session_state["selected_activity"] = None
         st.session_state["temp_slider"] = 0
@@ -489,6 +546,8 @@ if st.session_state.get("ml_reset", False):
         st.stop()
 
     # --- Calcul ML ---
+    # On utilise le modèle pour prédire la performance sous les conditions
+    # météorologiques de l'activité sélectionnée.
 st.success(f"Course sélectionnée : {selected_activity['start_date_local']}")
 
 speed_ml, time_ml = predict_time(
@@ -539,6 +598,8 @@ time_pct = ((corrected_time - real_time) / real_time) * 100
     # -----------------------------
     # AFFICHAGE DES STATS
     # -----------------------------
+    # Ici on compare les mesures réelles et les prédictions météo-performance
+    # pour quantifier l'impact des conditions sur la sortie.
     # -----------------------------
     # # 📊 DUMBBELL CHART
     # -----------------------------
@@ -645,6 +706,8 @@ else:
     # 🏆 MEILLEURE HEURE DU JOUR
     # -----------------------------
 
+# Section dédiée au choix du meilleur créneau pour s'entraîner selon les
+# prévisions météo du jour, du lendemain et du surlendemain.
 st.subheader("❓Quand s'entrainer ❓")
 
 lat = selected_activity["lat_start"]
@@ -654,6 +717,7 @@ today_str = datetime.now().strftime("%Y-%m-%d")
 
 hours_results = []
 
+# Calcul du score météo pour chaque heure du jour actuel.
 for hour in range(6, 22):
 
         try:
@@ -719,11 +783,14 @@ if not df_hours.empty:
     # 🗓️ DEMAIN
     # -----------------------------
 
+# Prévisions météo pour le lendemain afin de comparer la qualité des
+# conditions à celle du jour actuel.
 tomorrow = datetime.now() + pd.Timedelta(days=1)
 tomorrow_str = tomorrow.strftime("%Y-%m-%d")
 
 hours_tomorrow = []
 
+# Calcul du score météo pour chaque heure du lendemain.
 for hour in range(6, 22):
 
     try:
@@ -787,11 +854,13 @@ if not df_tomorrow.empty:
     # 🗓️ SURLENDEMAIN
     # -----------------------------
 
+# Prévisions météo pour le surlendemain afin d'obtenir une vue sur trois jours.
 day_after  = datetime.now() + pd.Timedelta(days=2)
 day_after_str = day_after.strftime("%Y-%m-%d")
 
 hours_day_after = []
 
+# Calcul du score météo pour chaque heure du surlendemain.
 for hour in range(6, 22):
 
     try:
@@ -942,6 +1011,8 @@ st.success(
     # -----------------------------
     # GRAPHIQUE
     # -----------------------------
+    # Le graphique compare les scores météo sur 3 jours pour choisir la
+    # meilleure fenêtre d'entraînement visuellement.
 
 fig_compare_days = go.Figure()
 
