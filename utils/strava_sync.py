@@ -10,10 +10,13 @@ Ce script exécute le pipeline complet suivant :
 5. Export des fichiers CSV de résultat.
 """
 
-import requests
-import pandas as pd
-from utils.auth import refresh_tokens
 from datetime import datetime
+from pathlib import Path
+
+import pandas as pd
+import requests
+
+from utils.auth import refresh_tokens
 from utils.meteo import get_meteo, saison_meteo
 from utils.meteo import moyenne_mois, saison_meteo
 
@@ -266,13 +269,16 @@ def main():
                 "heartrate": heartrate[i] if i < len(heartrate) else None
             })
 
-    # 4) Export des points GPS sous forme de données tabulées.
+    # 4) Export des données dans un dossier créé aussi sur les déploiements neufs.
+    data_dir = Path(__file__).resolve().parents[1] / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+
     gps_df = pd.DataFrame(gps_rows)
-    gps_df.to_csv("data/gps_points.csv", index=False)
+    gps_df.to_csv(data_dir / "gps_points.csv", index=False)
     print("✔️ data/gps_points.csv généré")
 
     # 5) Export final de l'ensemble des activités enrichies et prêtes pour l'analyse.
-    df_h.to_csv("data/activities_with_weather_harmonized.csv", index=False)
+    df_h.to_csv(data_dir / "activities_with_weather_harmonized.csv", index=False)
     print("✔️ data/activities_with_weather_harmonized.csv généré")
     
     return df_h

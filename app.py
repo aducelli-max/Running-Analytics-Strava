@@ -4,11 +4,12 @@ import pandas as pd
 import folium
 from streamlit_folium import st_folium
 from datetime import datetime
+from pathlib import Path
 import time
 import plotly.graph_objects as go
 import numpy as np
 
-from ml.utils_ml import predict_time
+from ml.utils_ml import is_model_trained_from_data, predict_time
 from utils.couleur_allure import couleur_allure
 from utils.meteo_penalty import meteo_penalty
 from utils.meteo_heart_rate import meteo_heart_rate
@@ -16,6 +17,10 @@ from utils.color_pct import color_pct
 from utils.folium_color import folium_color
 from utils.meteo import get_meteo
 from utils.strava_sync import main
+
+DATA_DIR = Path(__file__).resolve().parent / "data"
+ACTIVITIES_FILE = DATA_DIR / "activities_with_weather_harmonized.csv"
+GPS_FILE = DATA_DIR / "gps_points.csv"
 
 # -------------------------------------------------------------------
 # IMPORTS ET CONFIGURATION GLOBALE
@@ -87,6 +92,7 @@ if st.session_state.page == "home":
             else:
                 # Vider le cache Streamlit
                 st.cache_data.clear()
+                st.cache_resource.clear()
                 st.success("✔️ Mise à jour terminée !")
                 st.write(f"📊 Total activités : {len(df_updated)}"
                 )
@@ -107,12 +113,11 @@ if st.session_state.page == "home":
 # La fonction est mise en cache pour éviter de relire les fichiers à chaque rafraîchissement.
 @st.cache_data
 def load_data():
+    if not ACTIVITIES_FILE.is_file() or not GPS_FILE.is_file():
+        return None, None
 
     # Lecture du dataset principal contenant les infos de performance et météo.
-    df = pd.read_csv(
-        "data/activities_with_weather_harmonized.csv"
-    
-    )
+    df = pd.read_csv(ACTIVITIES_FILE)
 
     # On conserve uniquement les sorties en course à pied.
     df = df[df["sport_type"] == "Run"].copy()
@@ -138,15 +143,18 @@ def load_data():
     )
 
     # Lecture des points GPS associés à chaque activité.
-    gps = pd.read_csv(
-        "data/gps_points.csv"
-    )
+    gps = pd.read_csv(GPS_FILE)
 
     return df, gps
 
 
 # Appel unique de chargement des données au démarrage de l'application.
 df, gps = load_data()
+if df is None or gps is None:
+    st.warning("Aucune donnée Strava n’est encore disponible sur ce déploiement.")
+    st.info("Clique sur « Mise à jour » pour synchroniser tes activités Strava.")
+    st.stop()
+
 if df.empty:
     st.error("Le dataframe df est vide")
     st.stop()
@@ -561,6 +569,9 @@ speed_ml, time_ml = predict_time(
         selected_activity["hour"],
         selected_activity["total_elevation_gain"]
     )
+
+if is_model_trained_from_data():
+    st.info("Modèle entraîné en mémoire à partir de tes activités synchronisées.")
 
 allure_ml = 60 / speed_ml
 bpm_increase = meteo_heart_rate(
