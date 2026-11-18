@@ -9,7 +9,7 @@ import time
 import plotly.graph_objects as go
 import numpy as np
 
-from ml.utils_ml import is_model_trained_from_data, predict_time
+from ml.utils_ml import predict_time
 from utils.couleur_allure import couleur_allure
 from utils.meteo_heart_rate import meteo_heart_rate
 from utils.color_pct import color_pct
@@ -673,9 +673,6 @@ speed_ml, time_ml = predict_time(
         selected_activity["hour"],
         selected_activity["total_elevation_gain"]
     )
-
-if is_model_trained_from_data():
-    st.info("Modèle entraîné en mémoire à partir de tes activités synchronisées.")
 
 allure_ml = 60 / speed_ml
 
