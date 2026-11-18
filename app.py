@@ -573,48 +573,6 @@ for cat in categories_selection:
 # estimer l'impact de la météo, puis proposer les meilleures heures pour courir.
 
 
-if st.session_state.page == "prediction":
-    # Le coach fournit un message de guidance selon la qualité globale
-    # des conditions météorologiques pour la course.
-    
-        def get_coach_phrase(score_meteo):
-            if score_meteo >= 80:
-                return """
-            Conditions idéales pour performer.
-            La météo te porte, ton corps va répondre, et le terrain est avec toi.
-            C’est le moment de dérouler une foulée propre, régulière, ambitieuse.
-            Reste fluide, respire, et laisse la mécanique faire le travail.
-            Aujourd’hui, tu peux viser un chrono solide sans te mettre en danger.
-            """, "#00FFAA", "🟢 Conditions parfaites"
-        
-            elif score_meteo >= 60:
-                return """
-            Conditions correctes, rien d’alarmant.
-            Tu peux faire une bonne course, mais la clé sera la gestion.
-            Ne pars pas trop vite, installe ton rythme, reste concentré.
-            La météo ne t’aide pas, mais elle ne te pénalise pas non plus.
-            Ton mental fera la différence : reste propre, reste lucide.
-            """, "#4FC3F7", "🔵 Conditions correctes"
-        
-            elif score_meteo >= 40:
-                return """
-            Météo exigeante, il va falloir courir avec la tête.
-            Adapte ton allure, protège ton cardio, surveille ton souffle.
-            Les conditions vont te tester : vise la régularité plutôt que la vitesse.
-            C’est une course de maîtrise, pas de bravoure.
-            Reste solide, reste stable, et tu traverseras cette zone sans te cramer.
-            """, "#FFD54F", "🟡 Conditions difficiles"
-        
-            else:
-                return """
-            Météo hostile : adapte tout, allure, respiration, ambition.
-            Aujourd’hui, l’objectif n’est pas le chrono, mais la résistance.
-            Chaque kilomètre est un combat, avance avec humilité.
-            Protège ton corps, garde la tête froide, et reste maître de ton effort.
-            C’est une course de survivant : tu t’adaptes, tu encaisses, tu progresses.
-        """, "#FF0080", "🔴 Conditions extrêmes"
-
-
 import plotly.graph_objects as go
 
 st.title("🤖 Coach Running IAnalyse :")
@@ -853,9 +811,12 @@ for hour in range(max(6, analysis_now.hour + 1), 22):
                 "temp": meteo_hour["temp"],
                 "wind": meteo_hour["wind"],
                 "rh": meteo_hour["rh"],
+                "precip": meteo_hour["precip"],
+                "cloud": meteo_hour["cloud"],
                 "speed": speed_pred,
                 "allure": allure_pred,
                 "time": time_pred,
+                "month": analysis_now.month,
                 "score": score
             })
 
@@ -917,13 +878,19 @@ for hour in range(6, 22):
         score -= meteo_hour["precip"] * 5
 
         score = max(0, min(100, score))
+        allure_pred = 60 / speed_pred
 
         hours_tomorrow.append({
             "hour": hour,
             "temp": meteo_hour["temp"],
             "wind": meteo_hour["wind"],
             "rh": meteo_hour["rh"],
+            "precip": meteo_hour["precip"],
+            "cloud": meteo_hour["cloud"],
             "speed": speed_pred,
+            "allure": allure_pred,
+            "time": time_pred,
+            "month": tomorrow.month,
             "score": score
         })
 
@@ -987,13 +954,19 @@ for hour in range(6, 22):
         score -= meteo_hour["precip"] * 5
 
         score = max(0, min(100, score))
+        allure_pred = 60 / speed_pred
 
         hours_day_after.append({
             "hour": hour,
             "temp": meteo_hour["temp"],
             "wind": meteo_hour["wind"],
             "rh": meteo_hour["rh"],
+            "precip": meteo_hour["precip"],
+            "cloud": meteo_hour["cloud"],
             "speed": speed_pred,
+            "allure": allure_pred,
+            "time": time_pred,
+            "month": day_after.month,
             "score": score
         })
 
@@ -1133,5 +1106,97 @@ if any(not day_data.empty for _, day_data, _, _ in day_recommendations):
     )
 else:
     st.info("Aucune donnée météo n'est disponible pour afficher le graphique.")
+
+if available_recommendations:
+    recommendation_days = [
+        day_name for day_name, _ in available_recommendations
+    ]
+    if st.session_state.get("selected_training_day") not in recommendation_days:
+        st.session_state["selected_training_day"] = winner_day
+
+    selected_training_day = st.segmented_control(
+        "Choisir l'entraînement à estimer",
+        options=recommendation_days,
+        key="selected_training_day",
+    )
+
+    if selected_training_day is not None:
+        selected_slot = next(
+            slot
+            for day_name, slot in available_recommendations
+            if day_name == selected_training_day
+        )
+        weather_penalty = meteo_penalty(
+            selected_slot["temp"],
+            selected_slot["rh"],
+            selected_slot["wind"],
+            selected_slot["precip"],
+        )
+        estimated_speed = selected_slot["speed"] * (
+            1 - weather_penalty / 100
+        )
+        estimated_time = selected_slot["time"] * (
+            1 + weather_penalty / 100
+        )
+        estimated_pace = 60 / estimated_speed
+
+        reference_heartrate = selected_activity["average_heartrate"]
+        if pd.notna(reference_heartrate):
+            reference_weather_effect = meteo_heart_rate(
+                selected_activity["temp_mean"],
+                selected_activity["rh_mean"],
+                selected_activity["wind_mean"],
+            )
+            selected_weather_effect = meteo_heart_rate(
+                selected_slot["temp"],
+                selected_slot["rh"],
+                selected_slot["wind"],
+            )
+            estimated_heartrate = (
+                reference_heartrate
+                + selected_weather_effect
+                - reference_weather_effect
+            )
+            heartrate_display = f"{estimated_heartrate:.0f}"
+        else:
+            heartrate_display = "—"
+
+        st.subheader(
+            f"Estimation de l'entraînement — {selected_training_day} "
+            f"à {int(selected_slot['hour']):02d}h00"
+        )
+        st.caption(
+            "Projection indicative pour ta distance habituelle, selon la météo "
+            f"prévue (note : {selected_slot['score']:.1f}/100)."
+        )
+        st.caption(
+            f"Météo : {selected_slot['temp']:.1f} °C · "
+            f"humidité {selected_slot['rh']:.0f}% · "
+            f"vent {selected_slot['wind']:.1f} km/h · "
+            f"pluie {selected_slot['precip']:.1f} mm"
+        )
+
+        first_estimate_row = st.columns(3)
+        first_estimate_row[0].metric(
+            "Distance (km)", f"{selected_activity['distance_km']:.1f}"
+        )
+        first_estimate_row[1].metric(
+            "Durée estimée", format_duration(estimated_time)
+        )
+        first_estimate_row[2].metric(
+            "Allure estimée", format_pace(estimated_pace)
+        )
+
+        second_estimate_row = st.columns(3)
+        second_estimate_row[0].metric(
+            "Vitesse estimée (km/h)", f"{estimated_speed:.1f}"
+        )
+        second_estimate_row[1].metric(
+            "Cardio estimé (BPM)", heartrate_display
+        )
+        elevation = selected_activity["total_elevation_gain"]
+        second_estimate_row[2].metric(
+            "Dénivelé (m)", f"{elevation:.0f}" if pd.notna(elevation) else "—"
+        )
 
 # pour lancer streamlit : streamlit run app.py
