@@ -820,7 +820,12 @@ else:
 st.subheader(
     "Quand s'entraîner ?",
     icon=":material/schedule:",
-    help="Les créneaux sont classés selon la météo prévue. Choisis un jour pour afficher l'estimation correspondante.",
+    help="La note classe les conditions météo. La vitesse est estimée séparément par le modèle à partir de la météo et de la course choisie.",
+)
+st.caption(
+    ":material/info: La note météo indique si les conditions semblent favorables ; "
+    "elle ne prédit pas ta performance. La vitesse estimée par le modèle tient "
+    "compte de la météo complète et de ta course de référence."
 )
 
 lat = selected_activity["lat_start"]
@@ -1068,12 +1073,23 @@ for column, (day_name, _, best_slot, _) in zip(
                 continue
 
             st.markdown(f"**🏆 {int(best_slot['hour']):02d}h00**")
-            st.metric("Note météo", f"{best_slot['score']:.1f}/100")
-            st.caption(
-                f"🌡️ {best_slot['temp']:.1f} °C · "
-                f"💨 {best_slot['wind']:.1f} km/h"
+            st.metric(
+                "Note météo",
+                f"{best_slot['score']:.1f}/100",
+                help="Indice indicatif basé sur la température, le vent, l'humidité et la pluie. Les nuages ne sont pas inclus dans cette note.",
             )
-            st.caption(f"⚡ {best_slot['speed']:.2f} km/h")
+            st.caption(
+                f"🌡️ Température : {best_slot['temp']:.1f} °C · "
+                f"💧 Humidité : {best_slot['rh']:.0f}%"
+            )
+            st.caption(
+                f"💨 Vent : {best_slot['wind']:.1f} km/h · "
+                f"🌧️ Pluie : {best_slot['precip']:.1f} mm · "
+                f"☁️ Nuages : {best_slot['cloud']:.0f}%"
+            )
+            st.caption(
+                f"⚡ Vitesse estimée par le modèle : {best_slot['speed']:.2f} km/h"
+            )
 
     # La carte et le graphique utilisent le même meilleur point par journée.
 available_recommendations = [
@@ -1228,7 +1244,8 @@ if available_recommendations:
             f"Météo : {selected_slot['temp']:.1f} °C · "
             f"humidité {selected_slot['rh']:.0f}% · "
             f"vent {selected_slot['wind']:.1f} km/h · "
-            f"pluie {selected_slot['precip']:.1f} mm"
+            f"pluie {selected_slot['precip']:.1f} mm · "
+            f"nuages {selected_slot['cloud']:.0f}%"
         )
 
         first_estimate_row = st.columns(3)
