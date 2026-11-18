@@ -275,6 +275,9 @@ carte = folium.Map(
 # -----------------------------
 # Cette boucle trace chaque sortie du mois sur la carte et colorie chaque
 # segment selon son allure pour visualiser immédiatement les variations de rythme.
+popup_activity_ids = {}
+popup_label_counts = {}
+
 for activity_id in df_filtre["activity_id"].unique():
 
         gps_run = (
@@ -296,6 +299,34 @@ for activity_id in df_filtre["activity_id"].unique():
         # Calcule un rythme approximatif en min/km à partir de la vitesse.
         gps_run["pace"] = (1000 / gps_run["velocity"]) / 60
         coords = gps_run[["lat", "lon"]].values.tolist()
+        activity = df_filtre[df_filtre["activity_id"] == activity_id].iloc[0]
+        distance_km = activity["distance_km"]
+        start_date = activity["start_date_local"].strftime("%Y-%m-%d %H:%M:%S")
+        popup_label_base = (
+            f"{distance_km:.1f} km · {start_date} · "
+            f"{activity['duration_min']:.1f} min"
+        )
+        popup_label_counts[popup_label_base] = (
+            popup_label_counts.get(popup_label_base, 0) + 1
+        )
+        popup_label = popup_label_base
+        if popup_label_counts[popup_label_base] > 1:
+            popup_label = (
+                f"{popup_label_base} · Sortie "
+                f"{popup_label_counts[popup_label_base]}"
+            )
+        popup_activity_ids[popup_label] = activity_id
+        heartrate = activity["average_heartrate"]
+        heartrate_text = f"{heartrate:.0f} BPM" if pd.notna(heartrate) else "—"
+        elevation = activity["total_elevation_gain"]
+        elevation_text = f"{elevation:.0f} m" if pd.notna(elevation) else "—"
+        popup_html = (
+            f"<strong>{popup_label}</strong><br>"
+            f"Allure : {activity['allure_min_km']:.2f} min/km<br>"
+            f"Vitesse : {activity['vitesse_kmh']:.2f} km/h<br>"
+            f"Fréquence cardiaque : {heartrate_text}<br>"
+            f"Dénivelé : {elevation_text}"
+        )
 
     # Trace grise de fond
         folium.PolyLine(
@@ -317,13 +348,15 @@ for activity_id in df_filtre["activity_id"].unique():
         # Markers départ / arrivée
         folium.Marker(
             coords[0],
-            popup=str(activity_id),
+            popup=folium.Popup(popup_html, max_width=300),
+            tooltip=f"Départ · {distance_km:.1f} km",
             icon=folium.Icon(icon="play")
         ).add_to(carte)
 
         folium.Marker(
             coords[-1],
-            popup=str(activity_id),
+            popup=folium.Popup(popup_html, max_width=300),
+            tooltip=f"Arrivée · {distance_km:.1f} km",
             icon=folium.Icon(color='black', icon="flag-checkered", prefix="fa")
         ).add_to(carte)
 
@@ -334,6 +367,7 @@ for activity_id in df_filtre["activity_id"].unique():
 gps_all = gps[gps["activity_id"].isin(df_filtre["activity_id"])
     ].dropna(subset=["lat", "lon"])
 
+map_data = None
 if not gps_all.empty:
         min_lat = gps_all["lat"].min()
         max_lat = gps_all["lat"].max()
@@ -349,20 +383,58 @@ if not gps_all.empty:
         map_data = st_folium(
             carte, 
             height=600, 
-            width=900
+            width=900,
+            returned_objects=["last_object_clicked_popup"],
         )
 
-    # --- Clic sur un marker → sélection pour prédiction ---
-    # Si l'utilisateur clique sur une course, on charge cette activité dans l'état de session.
-if map_data and "last_object_clicked" in map_data:
-            
-        clicked = map_data["last_object_clicked"]
-            
-        if clicked and "popup" in clicked:
-            
-            activity_clicked = int(clicked["popup"])
-            
-            st.session_state["selected_activity"] = df_filtre[df_filtre["activity_id"] == activity_clicked].iloc[0]
+if map_data and map_data.get("last_object_clicked_popup"):
+        popup_label = map_data["last_object_clicked_popup"].splitlines()[0].strip()
+        activity_clicked = popup_activity_ids.get(popup_label)
+        if activity_clicked is not None:
+            st.session_state["selected_map_activity_id"] = activity_clicked
+            st.session_state["selected_activity"] = (
+                df_filtre[df_filtre["activity_id"] == activity_clicked].iloc[0]
+            )
+
+selected_map_activity_id = st.session_state.get("selected_map_activity_id")
+selected_map_activity = None
+if selected_map_activity_id is not None:
+        selected_rows = df_filtre[
+            df_filtre["activity_id"] == selected_map_activity_id
+        ]
+        if selected_rows.empty:
+            st.session_state.pop("selected_map_activity_id", None)
+        else:
+            selected_map_activity = selected_rows.iloc[0]
+
+if selected_map_activity is not None:
+        st.subheader(
+            f"🏃 Course sélectionnée — "
+            f"{selected_map_activity['distance_km']:.1f} km"
+        )
+        st.caption(
+            selected_map_activity["start_date_local"].strftime("%d/%m/%Y à %H:%M")
+        )
+        stats_columns = st.columns(5)
+        stats_columns[0].metric(
+            "Durée", f"{selected_map_activity['duration_min']:.1f} min"
+        )
+        stats_columns[1].metric(
+            "Allure", f"{selected_map_activity['allure_min_km']:.2f} min/km"
+        )
+        stats_columns[2].metric(
+            "Vitesse", f"{selected_map_activity['vitesse_kmh']:.1f} km/h"
+        )
+        heartrate = selected_map_activity["average_heartrate"]
+        stats_columns[3].metric(
+            "Cardio", f"{heartrate:.0f} BPM" if pd.notna(heartrate) else "—"
+        )
+        elevation = selected_map_activity["total_elevation_gain"]
+        stats_columns[4].metric(
+            "Dénivelé", f"{elevation:.0f} m" if pd.notna(elevation) else "—"
+        )
+        if st.button("🔮 Analyser cette course", key="analyze_map_activity"):
+            st.session_state["selected_activity"] = selected_map_activity
             st.session_state.page = "prediction"
             st.rerun()
 
