@@ -807,12 +807,13 @@ st.subheader("❓Quand s'entrainer ❓")
 lat = selected_activity["lat_start"]
 lon = selected_activity["lon_start"]
 
-today_str = datetime.now().strftime("%Y-%m-%d")
+analysis_now = pd.Timestamp.now(tz="Europe/Paris")
+today_str = analysis_now.strftime("%Y-%m-%d")
 
 hours_results = []
 
-# Calcul du score météo pour chaque heure du jour actuel.
-for hour in range(6, 22):
+# Calcul du score météo pour les heures restantes aujourd'hui.
+for hour in range(max(6, analysis_now.hour + 1), 22):
 
         try:
 
@@ -831,7 +832,7 @@ for hour in range(6, 22):
                 meteo_hour["precip"],
                 meteo_hour["cloud"],
                 meteo_hour["wind"],
-                datetime.now().month,
+                analysis_now.month,
                 hour,
                 selected_activity["total_elevation_gain"]
             )
@@ -866,12 +867,11 @@ for hour in range(6, 22):
     # -----------------------------
 
 df_hours = pd.DataFrame(hours_results)
-
-if not df_hours.empty:
-
-        best_hour = df_hours.loc[
-            df_hours["speed"].idxmax()
-        ]
+best_hour = (
+    df_hours.loc[df_hours["score"].idxmax()]
+    if not df_hours.empty
+    else None
+)
         
     # -----------------------------
     # 🗓️ DEMAIN
@@ -879,7 +879,7 @@ if not df_hours.empty:
 
 # Prévisions météo pour le lendemain afin de comparer la qualité des
 # conditions à celle du jour actuel.
-tomorrow = datetime.now() + pd.Timedelta(days=1)
+tomorrow = analysis_now + pd.Timedelta(days=1)
 tomorrow_str = tomorrow.strftime("%Y-%m-%d")
 
 hours_tomorrow = []
@@ -938,18 +938,18 @@ for hour in range(6, 22):
 df_tomorrow = pd.DataFrame(hours_tomorrow)
 #st.write(df_tomorrow.head()) #Vérifier les valeurs 
 
-if not df_tomorrow.empty:
-
-        best_tomorrow = df_tomorrow.loc[
-        df_tomorrow["score"].idxmax()
-    ]   
+best_tomorrow = (
+    df_tomorrow.loc[df_tomorrow["score"].idxmax()]
+    if not df_tomorrow.empty
+    else None
+)
         
     # -----------------------------
     # 🗓️ SURLENDEMAIN
     # -----------------------------
 
 # Prévisions météo pour le surlendemain afin d'obtenir une vue sur trois jours.
-day_after  = datetime.now() + pd.Timedelta(days=2)
+day_after  = analysis_now + pd.Timedelta(days=2)
 day_after_str = day_after.strftime("%Y-%m-%d")
 
 hours_day_after = []
@@ -1008,149 +1008,130 @@ for hour in range(6, 22):
 df_day_after = pd.DataFrame(hours_day_after)
 #st.write(df_day_after.head()) #Vérifier les valeurs 
 
-if not df_day_after.empty:
-
-        best_day_after = df_day_after.loc[
-        df_day_after["score"].idxmax()
-    ]
+best_day_after = (
+    df_day_after.loc[df_day_after["score"].idxmax()]
+    if not df_day_after.empty
+    else None
+)
     # -----------------------------
     # CARTE MEILLEUR JOUR / MEILLEURE HEURE
     # -----------------------------
 
-col1, col2, col3 = st.columns(3)
-
-with col1:
-
-    st.markdown(f"""
-### Aujourd'hui
-
-🏆 {int(best_hour['hour'])}h00
-
-🌡️ {best_hour['temp']:.1f}°C
-
-💨 {best_hour['wind']:.1f} km/h
-
-⚡ {best_hour['speed']:.2f} km/h
-
-🎯 {best_hour['score']:.2f}/100
-""")
-
-with col2:
-
-    st.markdown(f"""
-### Demain
-
-🏆 {int(best_tomorrow['hour'])}h00
-
-🌡️ {best_tomorrow['temp']:.1f}°C
-
-💨 {best_tomorrow['wind']:.1f} km/h
-
-⚡ {best_tomorrow['speed']:.2f} km/h
-
-🎯 {best_tomorrow['score']:.2f}/100
-""")
-    
-with col3:
-
-    st.markdown(f"""
-### Après-demain
-
-🏆 {int(best_day_after['hour'])}h00
-
-🌡️ {best_day_after['temp']:.1f}°C
-
-💨 {best_day_after['wind']:.1f} km/h
-
-⚡ {best_day_after['speed']:.2f} km/h
-
-🎯 {best_day_after['score']:.2f}/100
-""")
-
-    # -----------------------------
-    # TOP 3 DES HEURES
-    # -----------------------------
-ranking = pd.DataFrame([
-    {
-        "jour": "Aujourd'hui",
-        "heure": int(best_hour["hour"]),
-        "score": best_hour["score"]
-    },
-    {
-        "jour": "Demain",
-        "heure": int(best_tomorrow["hour"]),
-        "score": best_tomorrow["score"]
-    },
-    {
-        "jour": "Surlendemain",
-        "heure": int(best_day_after["hour"]),
-        "score": best_day_after["score"]
-    }
-])
-
-winner = ranking.loc[
-    ranking["score"].idxmax()
+day_recommendations = [
+    ("Aujourd'hui", df_hours, best_hour, "#636EFA"),
+    ("Demain", df_tomorrow, best_tomorrow, "#EF553B"),
+    ("Après-demain", df_day_after, best_day_after, "#00CC96"),
 ]
 
-st.success(
-    f"""
-🏆 Meilleure opportunité d'entraînement : {winner['jour']} {winner['heure']}h00
+for column, (day_name, _, best_slot, _) in zip(
+    st.columns(3), day_recommendations
+):
+    with column:
+        with st.container(border=True):
+            st.markdown(f"### {day_name}")
+            if best_slot is None:
+                st.info("Aucun créneau disponible.")
+                continue
 
-🎯 Score météo : {winner['score']:.2f}/100
+            st.markdown(f"**🏆 {int(best_slot['hour']):02d}h00**")
+            st.metric("Note météo", f"{best_slot['score']:.1f}/100")
+            st.caption(
+                f"🌡️ {best_slot['temp']:.1f} °C · "
+                f"💨 {best_slot['wind']:.1f} km/h"
+            )
+            st.caption(f"⚡ {best_slot['speed']:.2f} km/h")
 
-"""
-)
+    # La carte et le graphique utilisent le même meilleur point par journée.
+available_recommendations = [
+    (day_name, best_slot)
+    for day_name, _, best_slot, _ in day_recommendations
+    if best_slot is not None
+]
 
+if available_recommendations:
+    winner_day, winner = max(
+        available_recommendations,
+        key=lambda recommendation: recommendation[1]["score"],
+    )
+    st.success(
+        f"🏆 Meilleure opportunité : {winner_day} "
+        f"{int(winner['hour']):02d}h00 · "
+        f"Note météo : {winner['score']:.1f}/100"
+    )
+else:
+    st.warning("Aucun créneau météo n'a pu être calculé pour les trois jours.")
 
-    # -----------------------------
-    # GRAPHIQUE
-    # -----------------------------
-    # Le graphique compare les scores météo sur 3 jours pour choisir la
-    # meilleure fenêtre d'entraînement visuellement.
+# Le graphique affiche les mêmes meilleurs points que les cartes.
 
 fig_compare_days = go.Figure()
 
-fig_compare_days.add_trace(
-    go.Scatter(
-        x=df_hours["hour"],
-        y=df_hours["score"],
-        mode="lines+markers",
-        name="Aujourd'hui"
-    )
-)
+for day_name, day_data, best_slot, color in day_recommendations:
+    if day_data.empty:
+        continue
 
-fig_compare_days.add_trace(
-    go.Scatter(
-        x=df_tomorrow["hour"],
-        y=df_tomorrow["score"],
-        mode="lines+markers",
-        name="Demain"
+    fig_compare_days.add_trace(
+        go.Scatter(
+            x=day_data["hour"],
+            y=day_data["score"],
+            mode="lines+markers",
+            name=day_name,
+            line={"color": color},
+            marker={"color": color},
+            hovertemplate=(
+                "%{x}:00<br>Note météo : %{y:.1f}/100"
+                "<extra>%{fullData.name}</extra>"
+            ),
+        )
     )
-)
 
-fig_compare_days.add_trace(
-    go.Scatter(
-        x=df_day_after["hour"],
-        y=df_day_after["score"],
-        mode="lines+markers",
-        name="Surlendemain"
+    if best_slot is not None:
+        best_hour_value = int(best_slot["hour"])
+        best_score_value = best_slot["score"]
+        fig_compare_days.add_trace(
+            go.Scatter(
+                x=[best_hour_value],
+                y=[best_score_value],
+                mode="markers+text",
+                text=[f"{best_hour_value:02d}h · {best_score_value:.1f}/100"],
+                textposition="top center",
+                marker={
+                    "symbol": "star",
+                    "size": 16,
+                    "color": color,
+                    "line": {"color": "white", "width": 1},
+                },
+                showlegend=False,
+                hovertemplate=(
+                    f"{day_name} {best_hour_value:02d}:00"
+                    f"<br>Meilleure note : {best_score_value:.1f}/100"
+                    "<extra></extra>"
+                ),
+            )
+        )
+
+if best_hour is not None:
+    fig_compare_days.add_vline(
+        x=analysis_now.hour,
+        line_dash="dash",
+        line_color="gray",
+        annotation_text="Heure d'analyse",
+        annotation_position="top",
     )
-)
 
 fig_compare_days.update_layout(
-    title="📈 Qualité des conditions sur 3 jours",
+    title="📈 Note météo par heure — étoiles = meilleur créneau",
     template="plotly_dark",
     height=450,
     xaxis_title="Heure",
-    yaxis_title="Score météo"
+    yaxis_title="Note météo (/100)",
 )
 
-st.plotly_chart(
-    fig_compare_days,
-    width="stretch"
-)
-        
-
-
+if any(not day_data.empty for _, day_data, _, _ in day_recommendations):
+    st.plotly_chart(
+        fig_compare_days,
+        width="stretch",
+    )
+else:
+    st.info("Aucune donnée météo n'est disponible pour afficher le graphique.")
 
 # pour lancer streamlit : streamlit run app.py
