@@ -13,7 +13,6 @@ from ml.utils_ml import is_model_trained_from_data, predict_time
 from utils.couleur_allure import couleur_allure
 from utils.meteo_heart_rate import meteo_heart_rate
 from utils.color_pct import color_pct
-from utils.folium_color import folium_color
 from utils.meteo import get_meteo
 from utils.strava_sync import main
 from utils.convert_minutes_to_hhmm import format_duration, format_pace
@@ -760,56 +759,13 @@ st.dataframe(
     alt="Comparaison des mesures réelles de la course et des estimations du modèle",
 )
 
-    # -----------------------------
-    # ÉCART GLOBAL ENTRE LE MODÈLE ET LA COURSE RÉELLE
-    # -----------------------------
-    
-delta_allure = -allure_pct
-delta_speed = speed_pct
-delta_time = -time_pct
-
-performance_trend = (
-        delta_allure * 0.4 +
-        delta_speed * 0.3 +
-        delta_time * 0.1
-    )
-
-color = folium_color(performance_trend)
-
-
-
-    # -----------------------------
-    # CARTE DE LA COURSE
-    # -----------------------------
-
-st.subheader(
-    "Parcours de la course",
-    icon=":material/map:",
-    help="La couleur résume l'écart entre l'estimation du modèle et la course réelle : vert si l'estimation est globalement plus rapide, orange si l'écart est faible, rouge si elle est plus lente. Ce n'est pas une mesure isolée de l'effet météo.",
+st.info(
+    "La carte par portion a été retirée : le modèle estime une vitesse "
+    "moyenne pour toute la course, pas une prédiction à chaque point GPS. "
+    "Colorer les segments comme des prédictions ML serait trompeur.",
+    title="Limite du modèle",
+    icon=":material/info:",
 )
-gps_run = gps[gps["activity_id"] == selected_activity["activity_id"]].dropna()
-gps_run = gps_run.iloc[::3]
-coords = gps_run[["lat", "lon"]].dropna().values.tolist()
-
-if len(coords) < 2:
-        st.warning("⚠️ Impossible d'afficher la carte : pas assez de points GPS.")
-else:
-    
-        carte_ml = folium.Map(
-            location=[coords[0][0], coords[0][1]],
-            zoom_start=13
-        )
-
-        for i in range(len(coords) - 1):
-            folium.PolyLine(
-                [coords[i], coords[i+1]],
-                color=color,
-                weight=6,
-                opacity=0.9
-            ).add_to(carte_ml)
-
-        html_ml = carte_ml._repr_html_()
-        st.components.v1.html(html_ml, height=600)
  
     # -----------------------------
     # 🏆 MEILLEURE HEURE DU JOUR
