@@ -17,6 +17,7 @@ from utils.color_pct import color_pct
 from utils.folium_color import folium_color
 from utils.meteo import get_meteo
 from utils.strava_sync import main
+from utils.convert_minutes_to_hhmm import format_duration, format_pace
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 ACTIVITIES_FILE = DATA_DIR / "activities_with_weather_harmonized.csv"
@@ -196,8 +197,8 @@ st.sidebar.write(f"**☁️ Nuages :** {meteo_today['cloud']} %")
 st.sidebar.title("📈📉  Stats' globales : ")
     
 st.sidebar.write(f"**📏 Distance moy. :** {df["distance_km"].mean():.2f} km")
-st.sidebar.write(f"**⌛ Durée moy. :** {df["duration_min"].mean():.1f} Min")
-st.sidebar.write(f"⏱️ **Allure moy. :** {df['allure_min_km'].mean():.2f} min/km")   
+st.sidebar.write(f"**⌛ Durée moy. :** {format_duration(df['duration_min'].mean())}")
+st.sidebar.write(f"⏱️ **Allure moy. :** {format_pace(df['allure_min_km'].mean())}")
 st.sidebar.write(f"**🏃Vitesse moy. :** {df['vitesse_kmh'].mean():.1f} km/h")
 st.sidebar.write(f"**💪Score d'effort moy. :** {df['suffer_score'].mean():.1f}")
 st.sidebar.write(f"**⚡Dénivelé moy. :** {df['total_elevation_gain'].mean():.1f} M")
@@ -304,7 +305,7 @@ for activity_id in df_filtre["activity_id"].unique():
         start_date = activity["start_date_local"].strftime("%Y-%m-%d %H:%M:%S")
         popup_label_base = (
             f"{distance_km:.1f} km · {start_date} · "
-            f"{activity['duration_min']:.1f} min"
+            f"{format_duration(activity['duration_min'])}"
         )
         popup_label_counts[popup_label_base] = (
             popup_label_counts.get(popup_label_base, 0) + 1
@@ -322,7 +323,7 @@ for activity_id in df_filtre["activity_id"].unique():
         elevation_text = f"{elevation:.0f} m" if pd.notna(elevation) else "—"
         popup_html = (
             f"<strong>{popup_label}</strong><br>"
-            f"Allure : {activity['allure_min_km']:.2f} min/km<br>"
+            f"Allure : {format_pace(activity['allure_min_km'])}<br>"
             f"Vitesse : {activity['vitesse_kmh']:.2f} km/h<br>"
             f"Fréquence cardiaque : {heartrate_text}<br>"
             f"Dénivelé : {elevation_text}"
@@ -422,10 +423,10 @@ if selected_map_activity is not None:
                 "Distance (km)", f"{selected_map_activity['distance_km']:.1f}"
             )
             first_stats_row[1].metric(
-                "Durée (min)", f"{selected_map_activity['duration_min']:.1f}"
+                "Durée", format_duration(selected_map_activity["duration_min"])
             )
             first_stats_row[2].metric(
-                "Allure (min/km)", f"{selected_map_activity['allure_min_km']:.2f}"
+                "Allure", format_pace(selected_map_activity["allure_min_km"])
             )
 
             second_stats_row = st.columns(3)
@@ -442,7 +443,7 @@ if selected_map_activity is not None:
             )
 
             if st.button(
-                "Analyser cette course",
+                "🔮 Prédire cette course",
                 key="analyze_map_activity",
                 icon=":material/insights:",
                 width="stretch",
@@ -509,10 +510,10 @@ for cat in categories_selection:
             <div class="card">
                 <strong>{row['start_date_local'].strftime('%Y-%m-%d')}</strong>{trophy}
                 Distance : {row['distance_km']:.1f} km
-                Allure : {row['allure_min_km']:.2f} min/km
+                Allure : {format_pace(row['allure_min_km'])}
                 Vitesse : {row['vitesse_kmh']:.2f} km/h
                 Cardio : {bpm_txt}
-                Temps : {row['duration_min']:.1f} min
+                Temps : {format_duration(row['duration_min'])}
             </div>
             """, unsafe_allow_html=True)
 
@@ -525,10 +526,18 @@ for cat in categories_selection:
                 bpm if pd.notna(bpm) else 0,
                 row["duration_min"]
             ]
+            stats_display_values = [
+                format_pace(row["allure_min_km"]),
+                f"{row['vitesse_kmh']:.2f} km/h",
+                bpm_txt,
+                format_duration(row["duration_min"]),
+            ]
 
             fig = go.Figure(go.Bar(
                 x=stats_values,
                 y=stats_labels,
+                customdata=stats_display_values,
+                hovertemplate="%{y}: %{customdata}<extra></extra>",
                 orientation='h',
                 marker=dict(color=["#4FC3F7","#81C784","#E57373","#FFD54F"])
             ))
@@ -700,17 +709,6 @@ time_pct = ((corrected_time - real_time) / real_time) * 100
     # # 📊 DUMBBELL CHART
     # -----------------------------
 st.subheader("📊 Comparaison des performances")
-    
-def format_duration(mins):
-        total_seconds = int(mins * 60)
-        hours = total_seconds // 3600
-        minutes = (total_seconds % 3600) // 60
-        seconds = total_seconds % 60
-
-        if hours > 0:
-            return f"{hours:02d}h {minutes:02d}m {seconds:02d}s"
-        else:
-            return f"{minutes:02d}m {seconds:02d}s"
 
 compare_df = pd.DataFrame({
         "Métriques": [
@@ -724,7 +722,7 @@ compare_df = pd.DataFrame({
             format_duration(real_time),
             f"{real_hr:.0f} BPM" if pd.notna(real_hr) else "N/A",
             f"{real_speed:.2f} km/h",
-            f"{real_allure:.2f} min/km"
+            format_pace(real_allure)
         
         ],
 
@@ -732,7 +730,7 @@ compare_df = pd.DataFrame({
             format_duration(corrected_time),
             f"{corrected_hr:.0f} BPM" if pd.notna(corrected_hr) else "N/A",
             f"{corrected_speed:.2f} km/h",
-            f"{corrected_allure:.2f} min/km"
+            format_pace(corrected_allure)
         ],
 
         "Impact météo": [
