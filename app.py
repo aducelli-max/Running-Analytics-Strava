@@ -11,7 +11,6 @@ import numpy as np
 
 from ml.utils_ml import is_model_trained_from_data, predict_time
 from utils.couleur_allure import couleur_allure
-from utils.meteo_penalty import meteo_penalty
 from utils.meteo_heart_rate import meteo_heart_rate
 from utils.color_pct import color_pct
 from utils.folium_color import folium_color
@@ -70,6 +69,10 @@ if st.session_state.page == "home":
     # --- HEADER IMAGE ---
     st.image(headers_image[index], use_container_width=True)
     st.markdown("<h1 style='text-align:center;'>🏃‍♂️ Météo & Performance — Running Analytics with Strava</h1>", unsafe_allow_html=True)
+    st.caption(
+        ":material/info: Mets tes activités Strava à jour, puis sélectionne "
+        "une course pour consulter ses statistiques et son estimation."
+    )
 
 
 
@@ -80,7 +83,10 @@ if st.session_state.page == "home":
 
     with col1:
         # Bouton de synchronisation des données Strava.
-        if st.button("🔄 Mise à jour"):
+        if st.button(
+            "🔄 Mise à jour",
+            help="Synchronise tes activités Strava et actualise les statistiques.",
+        ):
             with st.spinner("⏳ Mise à jour des activités…"):
                 progress = st.progress(0)
                 for i in range(100):
@@ -102,7 +108,14 @@ if st.session_state.page == "home":
                 st.rerun()
 
     with col2:
-        uploaded_gpx = st.file_uploader("📥 Import GPX", type=["gpx"])
+        uploaded_gpx = st.file_uploader(
+            "📥 Sélectionner un fichier GPX",
+            type=["gpx"],
+            help=(
+                "Choisis un fichier .gpx. Pour le moment, l'application "
+                "confirme sa réception sans l'ajouter aux statistiques."
+            ),
+        )
         if uploaded_gpx is not None:
             st.write("GPX reçu, traitement en cours...")
 
@@ -186,7 +199,11 @@ hour_now = datetime.now().hour
 meteo_today = get_meteo(lat, lon, date_str, hour_now, df)
 
 # Affichage de la météo dans la sidebar.
-st.sidebar.title("🌦️ La météo du jour")
+st.sidebar.title(
+    "La météo du jour",
+    icon=":material/cloud:",
+    help="Conditions estimées près du départ de ta dernière course.",
+)
 st.sidebar.write(f"**🌡️ Température :** {meteo_today['temp']} °C")
 st.sidebar.write(f"**💨 Vent :** {meteo_today['wind']} km/h")
 st.sidebar.write(f"**💧 Humidité :** {meteo_today['rh']} %")
@@ -194,7 +211,11 @@ st.sidebar.write(f"**🌧️ Précipitations :** {meteo_today['precip']} mm")
 st.sidebar.write(f"**☁️ Nuages :** {meteo_today['cloud']} %")
 
 # Affichage de statistiques globales pour aider à contextualiser les performances.
-st.sidebar.title("📈📉  Stats' globales : ")
+st.sidebar.title(
+    "Statistiques globales",
+    icon=":material/monitoring:",
+    help="Moyennes calculées à partir de toutes tes courses synchronisées.",
+)
     
 st.sidebar.write(f"**📏 Distance moy. :** {df["distance_km"].mean():.2f} km")
 st.sidebar.write(f"**⌛ Durée moy. :** {format_duration(df['duration_min'].mean())}")
@@ -213,6 +234,10 @@ st.sidebar.write(f"**🏁 Activités :** {df['activity_id'].count()} sorties")
 # FILTRES ANNÉE / MOIS / CATÉGORIES
 # ---------------------
 # Construction des filtres interactifs pour sélectionner un sous-ensemble d'activités.
+st.caption(
+    ":material/info: Choisis une période et des distances pour filtrer "
+    "la carte et la liste des courses."
+)
 df_cat = df.copy()
 last_activity = df_cat.sort_values(by="start_date_local", ascending=False).iloc[0]
 default_year = int(last_activity["year"])
@@ -220,7 +245,8 @@ default_month = int(last_activity["month"])
 
 annees_disponibles = sorted(df_cat["year"].unique())
 annee = st.selectbox("Choisir l'année :", annees_disponibles,
-                         index=annees_disponibles.index(default_year))
+                         index=annees_disponibles.index(default_year),
+                         help="Affiche les courses réalisées pendant cette année.")
 
 mois_noms = {
         1:"Janvier",2:"Février",3:"Mars",4:"Avril",5:"Mai",6:"Juin",
@@ -229,18 +255,24 @@ mois_noms = {
 
 mois_dispo_num = sorted(df_cat[df_cat["year"] == annee]["month"].unique())
 mois_nom = st.selectbox("Choisir le mois :", [mois_noms[m] for m in mois_dispo_num],
-                            index=mois_dispo_num.index(default_month))
+                            index=mois_dispo_num.index(default_month),
+                            help="Affiche les courses réalisées pendant ce mois.")
 mois_num = [k for k,v in mois_noms.items() if v == mois_nom][0]
 
 df_filtre = df_cat[(df_cat["year"] == annee) & (df_cat["month"] == mois_num)]
 categories_dispo = sorted(df_filtre["categories_distances"].unique())
 categories_selection = st.multiselect("Choisir les catégories :", categories_dispo,
-                                          default=categories_dispo)
+                                          default=categories_dispo,
+                                          help="Choisis les distances à afficher. Plusieurs choix sont possibles.")
 
 df_filtre = df_filtre[df_filtre["categories_distances"].isin(categories_selection)]
 
 # Titre de la section qui affiche les parcours du mois en sélection.
-st.subheader("🗺️ Parcours du mois sélectionné")
+st.subheader(
+    "Parcours du mois sélectionné",
+    icon=":material/map:",
+    help="La carte montre les parcours de la période choisie. Clique sur un marqueur pour voir les statistiques d'une course.",
+)
 
 # ---------------------
 # SÉCURITÉ : AUCUNE ACTIVITÉ
@@ -410,7 +442,11 @@ if selected_map_activity_id is not None:
 
 if selected_map_activity is not None:
         with st.container(border=True):
-            st.markdown("#### Course sélectionnée")
+            st.subheader(
+                "Course sélectionnée",
+                icon=":material/directions_run:",
+                help="Résumé des statistiques de la course choisie sur la carte.",
+            )
             st.caption(
                 selected_map_activity["start_date_local"].strftime(
                     "%d/%m/%Y à %H:%M"
@@ -447,6 +483,7 @@ if selected_map_activity is not None:
                 key="analyze_map_activity",
                 icon=":material/insights:",
                 width="stretch",
+                help="Ouvre l'analyse météo et l'estimation pour cette course.",
             ):
                 st.session_state["selected_activity"] = selected_map_activity
                 st.session_state.page = "prediction"
@@ -457,7 +494,11 @@ if selected_map_activity is not None:
 # -----------------------------
 # Cette section détaille ensuite chaque course du mois sous forme de cartes,
 # graphiques et boutons d'action pour naviguer vers l'analyse prédictive.
-st.subheader("📅 Courses du mois")
+st.subheader(
+    "Courses du mois",
+    icon=":material/calendar_month:",
+    help="Chaque carte résume une course. Le bouton permet d'ouvrir son analyse météo.",
+)
 
 # Styles CSS pour la mise en forme des badges de catégorie.
 st.markdown("""
@@ -555,7 +596,11 @@ for cat in categories_selection:
 
             # --- Bouton prédire ---
             # Envoie l'activité courante vers la page de prédiction météo-performance.
-            if st.button("🔮 Prédire", key=f"btn_{unique_key}"):
+            if st.button(
+                "🔮 Prédire",
+                key=f"btn_{unique_key}",
+                help="Ouvre l'analyse météo et l'estimation pour cette course.",
+            ):
                 st.session_state["selected_activity"] = row
                 st.session_state.page = "prediction"
                 st.rerun()
@@ -575,7 +620,11 @@ for cat in categories_selection:
 
 import plotly.graph_objects as go
 
-st.title("🤖 Coach Running IAnalyse :")
+st.title(
+    "Coach running",
+    icon=":material/directions_run:",
+    help="Analyse une course sélectionnée et estime ses performances selon la météo.",
+)
     
     # --- Charger GPS ici aussi ---
 df, gps = load_data()
@@ -590,7 +639,11 @@ if selected_activity is None:
     # --- Bouton Reset ML ---
     # Permet de réinitialiser les paramètres de prédiction et repartir
     # sur une analyse neuve sans conserver l'ancien état calculé.
-if st.button("🔄 Reset ML", key="btn_reset_ml"):
+if st.button(
+    "🔄 Recommencer l'analyse",
+    key="btn_reset_ml",
+    help="Efface la course sélectionnée pour en choisir une autre.",
+):
         st.session_state["selected_activity"] = None
         st.session_state["temp_slider"] = 0
         st.session_state["wind_slider"] = 0
@@ -635,16 +688,9 @@ bpm_increase = meteo_heart_rate(
 heartrate_ml = selected_activity["average_heartrate"] - bpm_increase
 corrected_hr = heartrate_ml + bpm_increase
 
-penalty = meteo_penalty(
-        selected_activity["temp_mean"],
-        selected_activity["rh_mean"],
-        selected_activity["wind_mean"],
-        selected_activity["precip_mean"]
-    )
-
-corrected_time = time_ml * (1 + penalty / 100)
-corrected_speed = speed_ml * (1 - penalty / 100)
-corrected_allure = 60 / corrected_speed
+predicted_time = time_ml
+predicted_speed = speed_ml
+predicted_allure = 60 / predicted_speed
 
     # --- Réel ---
 real_allure = selected_activity["allure_min_km"]
@@ -653,10 +699,10 @@ real_hr = selected_activity["average_heartrate"]
 real_time = selected_activity["duration_min"]
 
     # --- % variations ---
-allure_pct = ((corrected_allure - real_allure) / real_allure) * 100
-speed_pct = ((corrected_speed - real_speed) / real_speed) * 100
+allure_pct = ((predicted_allure - real_allure) / real_allure) * 100
+speed_pct = ((predicted_speed - real_speed) / real_speed) * 100
 hr_pct = ((corrected_hr - real_hr) / real_hr) * 100 if pd.notna(real_hr) else 0
-time_pct = ((corrected_time - real_time) / real_time) * 100
+time_pct = ((predicted_time - real_time) / real_time) * 100
 
     # -----------------------------
     # AFFICHAGE DES STATS
@@ -666,7 +712,11 @@ time_pct = ((corrected_time - real_time) / real_time) * 100
     # -----------------------------
     # # 📊 DUMBBELL CHART
     # -----------------------------
-st.subheader("📊 Comparaison des performances")
+st.subheader(
+    "Comparaison des performances",
+    icon=":material/compare_arrows:",
+    help="Compare les mesures de ta course avec la prévision calculée à partir des mêmes conditions.",
+)
 
 compare_df = pd.DataFrame({
         "Métriques": [
@@ -685,10 +735,10 @@ compare_df = pd.DataFrame({
         ],
 
         "Prévision": [
-            format_duration(corrected_time),
+            format_duration(predicted_time),
             f"{corrected_hr:.0f} BPM" if pd.notna(corrected_hr) else "N/A",
-            f"{corrected_speed:.2f} km/h",
-            format_pace(corrected_allure)
+            f"{predicted_speed:.2f} km/h",
+            format_pace(predicted_allure)
         ],
 
         "Impact météo": [
@@ -727,9 +777,14 @@ color = folium_color(impact_meteo)
 
 
     # -----------------------------
-    # CARTE ML
+    # CARTE DE LA COURSE
     # -----------------------------
 
+st.subheader(
+    "Parcours de la course",
+    icon=":material/map:",
+    help="La couleur du tracé représente l'impact estimé de la météo sur la course sélectionnée.",
+)
 gps_run = gps[gps["activity_id"] == selected_activity["activity_id"]].dropna()
 gps_run = gps_run.iloc[::3]
 coords = gps_run[["lat", "lon"]].dropna().values.tolist()
@@ -760,7 +815,11 @@ else:
 
 # Section dédiée au choix du meilleur créneau pour s'entraîner selon les
 # prévisions météo du jour, du lendemain et du surlendemain.
-st.subheader("❓Quand s'entrainer ❓")
+st.subheader(
+    "Quand s'entraîner ?",
+    icon=":material/schedule:",
+    help="Les créneaux sont classés selon la météo prévue. Choisis un jour pour afficher l'estimation correspondante.",
+)
 
 lat = selected_activity["lat_start"]
 lon = selected_activity["lon_start"]
@@ -1118,6 +1177,7 @@ if available_recommendations:
         "Choisir l'entraînement à estimer",
         options=recommendation_days,
         key="selected_training_day",
+        help="Choisis aujourd'hui, demain ou après-demain pour voir la projection de course.",
     )
 
     if selected_training_day is not None:
@@ -1126,19 +1186,9 @@ if available_recommendations:
             for day_name, slot in available_recommendations
             if day_name == selected_training_day
         )
-        weather_penalty = meteo_penalty(
-            selected_slot["temp"],
-            selected_slot["rh"],
-            selected_slot["wind"],
-            selected_slot["precip"],
-        )
-        estimated_speed = selected_slot["speed"] * (
-            1 - weather_penalty / 100
-        )
-        estimated_time = selected_slot["time"] * (
-            1 + weather_penalty / 100
-        )
-        estimated_pace = 60 / estimated_speed
+        estimated_speed = selected_slot["speed"]
+        estimated_time = selected_slot["time"]
+        estimated_pace = selected_slot["allure"]
 
         reference_heartrate = selected_activity["average_heartrate"]
         if pd.notna(reference_heartrate):
@@ -1163,11 +1213,14 @@ if available_recommendations:
 
         st.subheader(
             f"Estimation de l'entraînement — {selected_training_day} "
-            f"à {int(selected_slot['hour']):02d}h00"
+            f"à {int(selected_slot['hour']):02d}h00",
+            icon=":material/insights:",
+            help="Projection de durée, allure, vitesse et cardio pour la distance de la course sélectionnée.",
         )
         st.caption(
-            "Projection indicative pour ta distance habituelle, selon la météo "
-            f"prévue (note : {selected_slot['score']:.1f}/100)."
+            "Projection indicative du modèle ML pour ta distance habituelle : "
+            "la météo est déjà intégrée à la prédiction. La note sert à "
+            f"comparer les créneaux ({selected_slot['score']:.1f}/100)."
         )
         st.caption(
             f"Météo : {selected_slot['temp']:.1f} °C · "
