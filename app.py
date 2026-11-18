@@ -408,35 +408,48 @@ if selected_map_activity_id is not None:
             selected_map_activity = selected_rows.iloc[0]
 
 if selected_map_activity is not None:
-        st.subheader(
-            f"🏃 Course sélectionnée — "
-            f"{selected_map_activity['distance_km']:.1f} km"
-        )
-        st.caption(
-            selected_map_activity["start_date_local"].strftime("%d/%m/%Y à %H:%M")
-        )
-        stats_columns = st.columns(5)
-        stats_columns[0].metric(
-            "Durée", f"{selected_map_activity['duration_min']:.1f} min"
-        )
-        stats_columns[1].metric(
-            "Allure", f"{selected_map_activity['allure_min_km']:.2f} min/km"
-        )
-        stats_columns[2].metric(
-            "Vitesse", f"{selected_map_activity['vitesse_kmh']:.1f} km/h"
-        )
-        heartrate = selected_map_activity["average_heartrate"]
-        stats_columns[3].metric(
-            "Cardio", f"{heartrate:.0f} BPM" if pd.notna(heartrate) else "—"
-        )
-        elevation = selected_map_activity["total_elevation_gain"]
-        stats_columns[4].metric(
-            "Dénivelé", f"{elevation:.0f} m" if pd.notna(elevation) else "—"
-        )
-        if st.button("🔮 Analyser cette course", key="analyze_map_activity"):
-            st.session_state["selected_activity"] = selected_map_activity
-            st.session_state.page = "prediction"
-            st.rerun()
+        with st.container(border=True):
+            st.markdown("#### Course sélectionnée")
+            st.caption(
+                selected_map_activity["start_date_local"].strftime(
+                    "%d/%m/%Y à %H:%M"
+                )
+                + f" · {selected_map_activity['categories_distances']}"
+            )
+
+            first_stats_row = st.columns(3)
+            first_stats_row[0].metric(
+                "Distance (km)", f"{selected_map_activity['distance_km']:.1f}"
+            )
+            first_stats_row[1].metric(
+                "Durée (min)", f"{selected_map_activity['duration_min']:.1f}"
+            )
+            first_stats_row[2].metric(
+                "Allure (min/km)", f"{selected_map_activity['allure_min_km']:.2f}"
+            )
+
+            second_stats_row = st.columns(3)
+            second_stats_row[0].metric(
+                "Vitesse (km/h)", f"{selected_map_activity['vitesse_kmh']:.1f}"
+            )
+            heartrate = selected_map_activity["average_heartrate"]
+            second_stats_row[1].metric(
+                "Cardio (BPM)", f"{heartrate:.0f}" if pd.notna(heartrate) else "—"
+            )
+            elevation = selected_map_activity["total_elevation_gain"]
+            second_stats_row[2].metric(
+                "Dénivelé (m)", f"{elevation:.0f}" if pd.notna(elevation) else "—"
+            )
+
+            if st.button(
+                "Analyser cette course",
+                key="analyze_map_activity",
+                icon=":material/insights:",
+                width="stretch",
+            ):
+                st.session_state["selected_activity"] = selected_map_activity
+                st.session_state.page = "prediction"
+                st.rerun()
 
 # -----------------------------
 # COURSES DU MOIS
