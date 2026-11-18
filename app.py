@@ -759,14 +759,6 @@ st.dataframe(
     alt="Comparaison des mesures réelles de la course et des estimations du modèle",
 )
 
-st.info(
-    "La carte par portion a été retirée : le modèle estime une vitesse "
-    "moyenne pour toute la course, pas une prédiction à chaque point GPS. "
-    "Colorer les segments comme des prédictions ML serait trompeur.",
-    title="Limite du modèle",
-    icon=":material/info:",
-)
- 
     # -----------------------------
     # 🏆 MEILLEURE HEURE DU JOUR
     # -----------------------------
