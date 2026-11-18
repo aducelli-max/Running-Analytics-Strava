@@ -679,14 +679,6 @@ if is_model_trained_from_data():
     st.info("Modèle entraîné en mémoire à partir de tes activités synchronisées.")
 
 allure_ml = 60 / speed_ml
-bpm_increase = meteo_heart_rate(
-        selected_activity["temp_mean"],
-        selected_activity["rh_mean"],
-        selected_activity["wind_mean"]
-    )
-
-heartrate_ml = selected_activity["average_heartrate"] - bpm_increase
-corrected_hr = heartrate_ml + bpm_increase
 
 predicted_time = time_ml
 predicted_speed = speed_ml
@@ -701,7 +693,6 @@ real_time = selected_activity["duration_min"]
     # --- % variations ---
 allure_pct = ((predicted_allure - real_allure) / real_allure) * 100
 speed_pct = ((predicted_speed - real_speed) / real_speed) * 100
-hr_pct = ((corrected_hr - real_hr) / real_hr) * 100 if pd.notna(real_hr) else 0
 time_pct = ((predicted_time - real_time) / real_time) * 100
 
     # -----------------------------
@@ -715,18 +706,31 @@ time_pct = ((predicted_time - real_time) / real_time) * 100
 st.subheader(
     "Comparaison des performances",
     icon=":material/compare_arrows:",
-    help="Compare les mesures de ta course avec la prévision calculée à partir des mêmes conditions.",
+    help="Compare le résultat réel de la course sélectionnée à l'estimation du modèle. L'écart n'isole pas l'effet de la météo.",
+)
+st.info(
+    "Le modèle apprend à partir de courses passées. Ici, il estime uniquement "
+    "la course sélectionnée à partir de sa distance, de son dénivelé, du mois, "
+    "de l'heure et de la météo enregistrée pendant cette sortie. Ce n'est ni "
+    "une moyenne de tes courses, ni une prévision météo pour les prochaines heures. "
+    "La durée est calculée à partir de la vitesse estimée.\n\n"
+    "**Lire l'écart :** `+` signifie que l'estimation est plus élevée que le "
+    "résultat réel. Pour le temps et l'allure, cela signifie plus lent ; pour "
+    "la vitesse, plus rapide. Le cardio est mesuré pendant la course, mais "
+    "n'est pas prédit par le modèle.",
+    title="Comment lire ce tableau",
+    icon=":material/info:",
 )
 
 compare_df = pd.DataFrame({
-        "Métriques": [
-            "⏱️ Temps",
-            "❤️ Cardio",
-            "🏃 Vitesse",
-            "⚡ Allure"
+        "Indicateur": [
+            "Durée totale",
+            "Cardio moyen",
+            "Vitesse moyenne",
+            "Allure moyenne"
         ],
 
-        "Réel": [
+        "Course réelle": [
             format_duration(real_time),
             f"{real_hr:.0f} BPM" if pd.notna(real_hr) else "N/A",
             f"{real_speed:.2f} km/h",
@@ -734,16 +738,16 @@ compare_df = pd.DataFrame({
         
         ],
 
-        "Prévision": [
+        "Estimation du modèle": [
             format_duration(predicted_time),
-            f"{corrected_hr:.0f} BPM" if pd.notna(corrected_hr) else "N/A",
+            "Non estimé",
             f"{predicted_speed:.2f} km/h",
             format_pace(predicted_allure)
         ],
 
-        "Impact météo": [
+        "Écart modèle/réel": [
             f"{time_pct:+.1f}%",
-            f"{hr_pct:+.1f}%" if pd.notna(hr_pct) else "N/A",
+            "—",
             f"{speed_pct:+.1f}%",
             f"{allure_pct:+.1f}%"
         ]
@@ -751,28 +755,26 @@ compare_df = pd.DataFrame({
 
 st.dataframe(
     compare_df,
-    use_container_width=True,
-    hide_index=True
-    )  
+    width="stretch",
+    hide_index=True,
+    alt="Comparaison des mesures réelles de la course et des estimations du modèle",
+)
 
     # -----------------------------
-    # IMPACT MÉTÉO
+    # ÉCART GLOBAL ENTRE LE MODÈLE ET LA COURSE RÉELLE
     # -----------------------------
     
 delta_allure = -allure_pct
 delta_speed = speed_pct
-delta_hr = -hr_pct
 delta_time = -time_pct
 
-impact_meteo = (
+performance_trend = (
         delta_allure * 0.4 +
         delta_speed * 0.3 +
-        delta_hr * 0.2 +
         delta_time * 0.1
     )
-score_meteo = max(0, min(100, abs(impact_meteo)))
 
-color = folium_color(impact_meteo)
+color = folium_color(performance_trend)
 
 
 
@@ -783,7 +785,7 @@ color = folium_color(impact_meteo)
 st.subheader(
     "Parcours de la course",
     icon=":material/map:",
-    help="La couleur du tracé représente l'impact estimé de la météo sur la course sélectionnée.",
+    help="La couleur résume l'écart entre l'estimation du modèle et la course réelle : vert si l'estimation est globalement plus rapide, orange si l'écart est faible, rouge si elle est plus lente. Ce n'est pas une mesure isolée de l'effet météo.",
 )
 gps_run = gps[gps["activity_id"] == selected_activity["activity_id"]].dropna()
 gps_run = gps_run.iloc[::3]
@@ -1252,4 +1254,3 @@ if available_recommendations:
             "Dénivelé (m)", f"{elevation:.0f}" if pd.notna(elevation) else "—"
         )
 
-# pour lancer streamlit : streamlit run app.py
