@@ -709,15 +709,15 @@ st.subheader(
     help="Compare le résultat réel de la course sélectionnée à l'estimation du modèle. L'écart n'isole pas l'effet de la météo.",
 )
 st.info(
-    "Le modèle apprend à partir de courses passées. Ici, il estime uniquement "
-    "la course sélectionnée à partir de sa distance, de son dénivelé, du mois, "
-    "de l'heure et de la météo enregistrée pendant cette sortie. Ce n'est ni "
-    "une moyenne de tes courses, ni une prévision météo pour les prochaines heures. "
-    "La durée est calculée à partir de la vitesse estimée.\n\n"
-    "**Lire l'écart :** `+` signifie que l'estimation est plus élevée que le "
-    "résultat réel. Pour le temps et l'allure, cela signifie plus lent ; pour "
-    "la vitesse, plus rapide. Le cardio est mesuré pendant la course, mais "
-    "n'est pas prédit par le modèle.",
+    "**Comment le temps est-il estimé ?** Le modèle apprend grâce à tes "
+    "anciennes courses. Pour la course choisie, il estime ta vitesse avec la "
+    "distance, le dénivelé, l'heure et la météo de ce jour-là. L'application "
+    "calcule ensuite : durée = distance ÷ vitesse.\n\n"
+    "**Exemple :** 5 km à 10 km/h donnent un temps estimé de 30 minutes. "
+    "Cela concerne la course choisie, pas une sortie future.\n\n"
+    "**Lire l'écart :** `+` veut dire plus long pour le temps et l'allure, "
+    "mais plus rapide pour la vitesse. Le cardio est mesuré pendant la course, "
+    "il n'est pas prédit par le modèle.",
     title="Comment lire ce tableau",
     icon=":material/info:",
 )
