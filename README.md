@@ -53,4 +53,4 @@ Intégration d’API, nettoyage et fusion de données hétérogènes, feature en
 
 ### Recommandation : 
 
-![Illustration du projet](<static/Estimation_de_l'entrainement.png>)
+![Illustration du projet](<static/Estimation_entrainement.png>)
