@@ -51,6 +51,10 @@ Intégration d’API, nettoyage et fusion de données hétérogènes, feature en
 
 ![Illustration du projet](<static/API OPEN_METEO.png>)
 
-### Recommandation : 
+### Les meilleures notes météo : 
 
-![Illustration du projet](<static/Estimation_entrainement.png>)
+![Illustration du projet](<static/Notes_météo.png>)
+
+### Estimation de l'entraînement : 
+
+![Illustration du projet](<static/Estimation entraînement.png>)
