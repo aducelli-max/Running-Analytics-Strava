@@ -491,8 +491,8 @@ if selected_map_activity is not None:
 # -----------------------------
 # COURSES DU MOIS
 # -----------------------------
-# Cette section détaille ensuite chaque course du mois sous forme de cartes,
-# graphiques et boutons d'action pour naviguer vers l'analyse prédictive.
+# Cette section présente les courses du mois dans des cartes avec leurs
+# indicateurs clés et un bouton pour ouvrir l'analyse prédictive.
 st.subheader(
     "Courses du mois",
     icon=":material/calendar_month:",
@@ -544,67 +544,32 @@ for cat in categories_selection:
             bpm = row["average_heartrate"]
             bpm_txt = f"{bpm:.0f} BPM" if pd.notna(bpm) else "—"
 
-            # --- Carte info ---
-            # Affiche les principales métriques de la course dans une carte HTML.
-            st.markdown(f"""
-            <div class="card">
-                <strong>{row['start_date_local'].strftime('%Y-%m-%d')}</strong>{trophy}
-                Distance : {row['distance_km']:.1f} km
-                Allure : {format_pace(row['allure_min_km'])}
-                Vitesse : {row['vitesse_kmh']:.2f} km/h
-                Cardio : {bpm_txt}
-                Temps : {format_duration(row['duration_min'])}
-            </div>
-            """, unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown(
+                    f"#### {row['start_date_local'].strftime('%d/%m/%Y')}{trophy}"
+                )
 
-            # --- Graphique ---
-            # Représentation visuelle des quatre dimensions principales de performance.
-            stats_labels = ["Allure","Vitesse","Cardio","Temps"]
-            stats_values = [
-                row["allure_min_km"],
-                row["vitesse_kmh"],
-                bpm if pd.notna(bpm) else 0,
-                row["duration_min"]
-            ]
-            stats_display_values = [
-                format_pace(row["allure_min_km"]),
-                f"{row['vitesse_kmh']:.2f} km/h",
-                bpm_txt,
-                format_duration(row["duration_min"]),
-            ]
+                if selected_map_activity is None:
+                    metric_columns = st.columns(4)
+                    metric_columns[0].metric(
+                        "Durée", format_duration(row["duration_min"])
+                    )
+                    metric_columns[1].metric(
+                        "Allure", format_pace(row["allure_min_km"])
+                    )
+                    metric_columns[2].metric(
+                        "Vitesse", f"{row['vitesse_kmh']:.2f} km/h"
+                    )
+                    metric_columns[3].metric("Cardio moyen", bpm_txt)
 
-            fig = go.Figure(go.Bar(
-                x=stats_values,
-                y=stats_labels,
-                customdata=stats_display_values,
-                hovertemplate="%{y}: %{customdata}<extra></extra>",
-                orientation='h',
-                marker=dict(color=["#4FC3F7","#81C784","#E57373","#FFD54F"])
-            ))
-
-            fig.update_layout(
-                height=150,
-                margin=dict(l=0,r=0,t=0,b=0),
-                template="plotly_dark",
-                xaxis=dict(showgrid=False, visible=False),
-                yaxis=dict(showgrid=False),
-            )
-
-            st.plotly_chart(fig, use_container_width=True,key=f"chart_{unique_key}")
-
-
-            # --- Bouton prédire ---
-            # Envoie l'activité courante vers la page de prédiction météo-performance.
-            if st.button(
-                "🔮 Prédire",
-                key=f"btn_{unique_key}",
-                help="Ouvre l'analyse météo et l'estimation pour cette course.",
-            ):
-                st.session_state["selected_activity"] = row
-                st.session_state.page = "prediction"
-                st.rerun()
-
-            st.markdown("<hr class='separator'>", unsafe_allow_html=True)
+                if st.button(
+                    "🔮 Prédire",
+                    key=f"btn_{unique_key}",
+                    help="Ouvre l'analyse météo et l'estimation pour cette course.",
+                ):
+                    st.session_state["selected_activity"] = row
+                    st.session_state.page = "prediction"
+                    st.rerun()
 
 
 #---------------------
