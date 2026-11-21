@@ -548,6 +548,7 @@ for cat in categories_selection:
                 st.markdown(
                     f"#### {row['start_date_local'].strftime('%d/%m/%Y')}{trophy}"
                 )
+                st.caption(f"Distance réelle : {row['distance_km']:.2f} km")
 
                 if selected_map_activity is None:
                     first_metric_row = st.columns(2)
