@@ -550,17 +550,18 @@ for cat in categories_selection:
                 )
 
                 if selected_map_activity is None:
-                    metric_columns = st.columns(4)
-                    metric_columns[0].metric(
+                    first_metric_row = st.columns(2)
+                    first_metric_row[0].metric(
                         "Durée", format_duration(row["duration_min"])
                     )
-                    metric_columns[1].metric(
+                    first_metric_row[1].metric(
                         "Allure", format_pace(row["allure_min_km"])
                     )
-                    metric_columns[2].metric(
+                    second_metric_row = st.columns(2)
+                    second_metric_row[0].metric(
                         "Vitesse", f"{row['vitesse_kmh']:.2f} km/h"
                     )
-                    metric_columns[3].metric("Cardio moyen", bpm_txt)
+                    second_metric_row[1].metric("Cardio moyen", bpm_txt)
 
                 if st.button(
                     "🔮 Prédire",
